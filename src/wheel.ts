@@ -1,5 +1,26 @@
 import type { Movie } from './types'
 
+export const COOLDOWN_SPINS = 3
+export const COOLDOWN_WEIGHT_MULTIPLIER = 0.25
+
+export type SpinCooldowns = Record<string, number>
+
+export function withSpinCooldowns(movies: Movie[], cooldowns: SpinCooldowns): Movie[] {
+  return movies.map((movie) => cooldowns[movie.id] > 0
+    ? { ...movie, weight: movie.weight * COOLDOWN_WEIGHT_MULTIPLIER }
+    : movie)
+}
+
+export function advanceSpinCooldowns(cooldowns: SpinCooldowns): SpinCooldowns {
+  return Object.fromEntries(Object.entries(cooldowns)
+    .filter(([, remaining]) => remaining > 1)
+    .map(([id, remaining]) => [id, remaining - 1]))
+}
+
+export function coolDownMovie(cooldowns: SpinCooldowns, id: string): SpinCooldowns {
+  return { ...cooldowns, [id]: COOLDOWN_SPINS }
+}
+
 export interface WheelSegment {
   movie: Movie
   startAngle: number

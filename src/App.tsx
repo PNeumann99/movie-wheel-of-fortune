@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { getWheelSegments, pickWeightedMovie, type WheelSegment } from './wheel'
+import { advanceSpinCooldowns, coolDownMovie, getWheelSegments, pickWeightedMovie, withSpinCooldowns, COOLDOWN_SPINS, COOLDOWN_WEIGHT_MULTIPLIER, type SpinCooldowns, type WheelSegment } from './wheel'
 import { filterMovies } from './filters'
 import { useMovieStore } from './useMovieStore'
 import { MovieSearch } from './MovieSearch'
@@ -10,6 +10,18 @@ import { genres, streamingServices, type Movie, type MovieDetails, type MovieGen
 import './App.css'
 
 const colors = ['#f8b85e', '#dd7969', '#9d93dc', '#69b9a7', '#e6a0bd', '#89a9d8', '#d5bd7d', '#8dc5c1']
+const spinCooldownKey = 'movie-wheel-spin-cooldowns-v1'
+
+function loadSpinCooldowns(): SpinCooldowns {
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(spinCooldownKey) ?? '{}')
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {}
+    return Object.fromEntries(Object.entries(saved)
+      .filter(([, remaining]) => Number.isInteger(remaining) && (remaining as number) >= 1 && (remaining as number) <= COOLDOWN_SPINS))
+  } catch {
+    return {}
+  }
+}
 
 function lengthLabel(movie: Movie): string {
   if (movie.kind === 'series') return 'Series'
@@ -95,6 +107,7 @@ function App() {
   const [spinning, setSpinning] = useState(false)
   const [spinMovies, setSpinMovies] = useState<Movie[] | null>(null)
   const [winner, setWinner] = useState<Movie | null>(null)
+  const [spinCooldowns, setSpinCooldowns] = useState<SpinCooldowns>(loadSpinCooldowns)
   const [movieToRemove, setMovieToRemove] = useState<Movie | null>(null)
   const [removingMovie, setRemovingMovie] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
@@ -116,7 +129,8 @@ function App() {
     maxYear: upperYear,
     addedBy: addedByFilter || null,
   }), [backlog, activeExcludedGenres, lowerYear, upperYear, addedByFilter, invalidYearRange])
-  const segments = useMemo(() => getWheelSegments(eligible), [eligible])
+  const weightedEligible = useMemo(() => withSpinCooldowns(eligible, spinCooldowns), [eligible, spinCooldowns])
+  const segments = useMemo(() => getWheelSegments(weightedEligible), [weightedEligible])
   const chanceById = useMemo(() => new Map(segments.map((segment) => [segment.movie.id, segment.chance])), [segments])
   const hasFilters = activeExcludedGenres.length > 0 || minYear !== '' || maxYear !== '' || addedByFilter !== ''
   const contributorIds = [...new Set([...backlog.map((movie) => movie.addedBy), ...(addedByFilter ? [addedByFilter] : [])])]
@@ -163,6 +177,9 @@ function App() {
   }
 
   useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current) }, [])
+  useEffect(() => {
+    try { sessionStorage.setItem(spinCooldownKey, JSON.stringify(spinCooldowns)) } catch { /* Storage may be unavailable. */ }
+  }, [spinCooldowns])
 
   function resetForm() {
     setTitle('')
@@ -262,9 +279,15 @@ function App() {
     setSpinMovies(null)
   }
 
+  function rejectWinner() {
+    if (!winner) return
+    setSpinCooldowns((current) => coolDownMovie(current, winner.id))
+    closeResult()
+  }
+
   function spin() {
     if (spinning || eligible.length === 0) return
-    const selected = pickWeightedMovie(eligible)
+    const selected = pickWeightedMovie(weightedEligible)
     if (!selected) return
     const segment = segments.find((item) => item.movie.id === selected.id)
     if (!segment) return
@@ -273,11 +296,12 @@ function App() {
     const current = ((rotation % 360) + 360) % 360
     const alignment = (((-center - current) % 360) + 360) % 360
     setWinner(null)
-    setSpinMovies(eligible)
+    setSpinMovies(weightedEligible)
     setSpinning(true)
     setRotation(rotation + 360 * 6 + alignment)
     spinTimer.current = setTimeout(() => {
       setSpinning(false)
+      setSpinCooldowns((current) => advanceSpinCooldowns(current))
       setWinner(selected)
     }, 4600)
   }
@@ -354,7 +378,7 @@ function App() {
           <div className="dashboard">
             <section className="wheel-card" aria-label="Spin the movie wheel">
               <div className="card-topline"><span>01 / THE DECIDER</span><span className="tiny-star">✦</span></div>
-              <Wheel movies={spinMovies ?? eligible} rotation={rotation} spinning={spinning} hasBacklog={backlog.length > 0} />
+              <Wheel movies={spinMovies ?? weightedEligible} rotation={rotation} spinning={spinning} hasBacklog={backlog.length > 0} />
               <div className="wheel-actions">
                 <button className="spin-button" onClick={spin} disabled={spinning || eligible.length === 0}>{spinning ? 'SPINNING…' : 'SPIN THE WHEEL'} <span>↗</span></button>
                 <p>More weight means a bigger slice and a better chance.</p>
@@ -392,7 +416,7 @@ function App() {
                 {backlog.length === 0 ? <div className="empty-list">Your watchlist is empty. Add a movie or series to give the wheel its first spin.</div> : backlog.map((movie, index) => (
                   <article className="movie-row" key={movie.id}>
                     <span className="movie-index">{String(index + 1).padStart(2, '0')}</span>
-                    <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> {movie.genre ?? 'Genre not set'} <span className="separator">·</span> {lengthLabel(movie)} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {chanceById.has(movie.id) ? `${((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance` : 'Out tonight'}</span><span className="movie-byline">Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div>
+                    <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> {movie.genre ?? 'Genre not set'} <span className="separator">·</span> {lengthLabel(movie)} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {chanceById.has(movie.id) ? `${((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance` : 'Out tonight'}</span><span className="movie-byline">Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span>{spinCooldowns[movie.id] > 0 && <span className="cooldown-note">Not tonight · {spinCooldowns[movie.id]} {spinCooldowns[movie.id] === 1 ? 'spin' : 'spins'} left at {COOLDOWN_WEIGHT_MULTIPLIER * 100}% weight</span>}</div>
                     <div className="movie-actions"><button title="Edit entry" aria-label={`Edit ${movie.title}`} onClick={() => startEdit(movie)}>Edit</button><button title="Mark watched" aria-label={`Mark ${movie.title} watched`} onClick={() => void changeStatus(movie)}>Watched</button><button title="Remove entry" aria-label={`Remove ${movie.title}`} onClick={(event) => askToRemove(movie, event.currentTarget)}>×</button></div>
                   </article>
                 ))}
@@ -405,7 +429,7 @@ function App() {
         </main>
       )}
 
-      {winner && <div className="result-overlay" role="dialog" aria-modal="true" aria-label="Watchlist pick selected" onClick={closeResult}><div className="result-card" onClick={(event) => event.stopPropagation()}><span className="eyebrow">AND TONIGHT’S PICK IS…</span><div className="result-sparkle">✦</div><h2>{winner.title}</h2><p>{winner.year ?? 'Year unknown'} <span className="separator">·</span> {winner.genre ?? 'Genre not set'} <span className="separator">·</span> {lengthLabel(winner)}</p><p className="result-byline">Added by {authorName(winner)}{winner.streamingService && <> <span className="separator">·</span> Streaming: {winner.streamingService}</>}</p><div className="result-actions"><button className="primary-button" onClick={() => void changeStatus(winner)}>Mark as watched</button><button className="secondary-button" onClick={closeResult}>Keep in the mix</button></div></div></div>}
+      {winner && <div className="result-overlay" role="dialog" aria-modal="true" aria-label="Watchlist pick selected" onClick={closeResult}><div className="result-card" onClick={(event) => event.stopPropagation()}><span className="eyebrow">AND TONIGHT’S PICK IS…</span><div className="result-sparkle">✦</div><h2>{winner.title}</h2><p>{winner.year ?? 'Year unknown'} <span className="separator">·</span> {winner.genre ?? 'Genre not set'} <span className="separator">·</span> {lengthLabel(winner)}</p><p className="result-byline">Added by {authorName(winner)}{winner.streamingService && <> <span className="separator">·</span> Streaming: {winner.streamingService}</>}</p><div className="result-actions"><button className="primary-button" onClick={() => void changeStatus(winner)}>Mark as watched</button><button className="cooldown-button" onClick={rejectWinner}>Not tonight</button><button className="secondary-button" onClick={closeResult}>Keep in the mix</button></div><p className="result-cooldown-hint">“Not tonight” lowers this pick’s wheel weight to {COOLDOWN_WEIGHT_MULTIPLIER * 100}% for the next {COOLDOWN_SPINS} spins in this session.</p></div></div>}
       {movieToRemove && <RemoveMovieDialog movie={movieToRemove} removing={removingMovie} error={removeError} onCancel={closeRemoveDialog} onConfirm={() => void confirmRemoveMovie()} />}
     </div>
   )
