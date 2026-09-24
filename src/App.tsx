@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { getWheelSegments, pickWeightedMovie, type WheelSegment } from './wheel'
+import { filterMovies } from './filters'
 import { useMovieStore } from './useMovieStore'
 import { genres, streamingServices, type Movie, type MovieDetails, type MovieGenre, type StreamingService } from './types'
 import './App.css'
@@ -17,21 +18,21 @@ function slicePath(segment: WheelSegment) {
   return `M 250 250 L ${start.x} ${start.y} A 220 220 0 ${segment.sweepAngle > 180 ? 1 : 0} 1 ${end.x} ${end.y} Z`
 }
 
-function Wheel({ movies, rotation, spinning }: { movies: Movie[], rotation: number, spinning: boolean }) {
+function Wheel({ movies, rotation, spinning, hasBacklog }: { movies: Movie[], rotation: number, spinning: boolean, hasBacklog: boolean }) {
   const segments = getWheelSegments(movies)
 
   return (
     <div className={`wheel-wrap ${spinning ? 'is-spinning' : ''}`}>
       <div className="wheel-pointer" aria-hidden="true" />
-      <svg className="wheel" viewBox="0 0 500 500" role="img" aria-label={movies.length ? 'Movie selection wheel' : 'Empty movie wheel'} style={{ transform: `rotate(${rotation}deg)` }}>
+      <svg className="wheel" viewBox="0 0 500 500" role="img" aria-label={movies.length ? 'Movie selection wheel' : hasBacklog ? 'No movies match the current filters' : 'Empty movie wheel'} style={{ transform: `rotate(${rotation}deg)` }}>
         <circle cx="250" cy="250" r="235" fill="#20243b" />
         {segments.length === 0 && (
           <>
             <circle cx="250" cy="250" r="218" fill="#31364e" />
             <circle cx="250" cy="250" r="184" className="empty-wheel-ring" />
             <text x="250" y="216" className="empty-wheel-spark">✦</text>
-            <text x="250" y="258" className="empty-wheel-text">NO MOVIES YET</text>
-            <text x="250" y="290" className="empty-wheel-subtext">Add one to get started</text>
+            <text x="250" y="258" className="empty-wheel-text">{hasBacklog ? 'NO MOVIES MATCH' : 'NO MOVIES YET'}</text>
+            <text x="250" y="290" className="empty-wheel-subtext">{hasBacklog ? 'Adjust tonight’s filters' : 'Add one to get started'}</text>
           </>
         )}
         {segments.map((segment, index) => {
@@ -69,6 +70,10 @@ function App() {
   const [weight, setWeight] = useState(1)
   const [genre, setGenre] = useState<MovieGenre | ''>('')
   const [streamingService, setStreamingService] = useState<StreamingService | ''>('')
+  const [excludedGenres, setExcludedGenres] = useState<MovieGenre[]>([])
+  const [minYear, setMinYear] = useState('')
+  const [maxYear, setMaxYear] = useState('')
+  const [addedByFilter, setAddedByFilter] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,8 +85,23 @@ function App() {
 
   const backlog = useMemo(() => store.movies.filter((movie) => movie.status === 'backlog'), [store.movies])
   const watched = useMemo(() => store.movies.filter((movie) => movie.status === 'watched'), [store.movies])
-  const segments = useMemo(() => getWheelSegments(backlog), [backlog])
+  const genreChoices = useMemo(() => genres.filter((option) => backlog.some((movie) => movie.genre === option)), [backlog])
+  const activeExcludedGenres = useMemo(() => excludedGenres.filter((option) => genreChoices.includes(option)), [excludedGenres, genreChoices])
+  const lowerYear = minYear === '' ? null : Number(minYear)
+  const upperYear = maxYear === '' ? null : Number(maxYear)
+  const invalidYearRange = (lowerYear !== null && (!Number.isInteger(lowerYear) || lowerYear < 1888 || lowerYear > 2100))
+    || (upperYear !== null && (!Number.isInteger(upperYear) || upperYear < 1888 || upperYear > 2100))
+    || (lowerYear !== null && upperYear !== null && lowerYear > upperYear)
+  const eligible = useMemo(() => invalidYearRange ? [] : filterMovies(backlog, {
+    excludedGenres: activeExcludedGenres,
+    minYear: lowerYear,
+    maxYear: upperYear,
+    addedBy: addedByFilter || null,
+  }), [backlog, activeExcludedGenres, lowerYear, upperYear, addedByFilter, invalidYearRange])
+  const segments = useMemo(() => getWheelSegments(eligible), [eligible])
   const chanceById = useMemo(() => new Map(segments.map((segment) => [segment.movie.id, segment.chance])), [segments])
+  const hasFilters = activeExcludedGenres.length > 0 || minYear !== '' || maxYear !== '' || addedByFilter !== ''
+  const contributorIds = [...new Set([...backlog.map((movie) => movie.addedBy), ...(addedByFilter ? [addedByFilter] : [])])]
   const editingMovie = store.movies.find((movie) => movie.id === editingId)
 
   function authorName(movie: Movie) {
@@ -91,9 +111,25 @@ function App() {
       || (movie.addedBy === 'preview' ? 'Preview user' : `Member ${movie.addedBy.slice(0, 6)}`)
   }
 
+  function contributorName(id: string) {
+    const movie = store.movies.find((entry) => entry.addedBy === id)
+    return movie ? authorName(movie) : store.memberNames[id] || `Member ${id.slice(0, 6)}`
+  }
+
   const formAuthor = editingMovie
     ? authorName(editingMovie)
     : store.preview ? 'Preview user' : store.memberNames[store.user?.uid ?? ''] || store.user?.displayName || store.user?.email || store.user?.uid || 'Member'
+
+  function toggleGenre(option: MovieGenre) {
+    setExcludedGenres((current) => current.includes(option) ? current.filter((genre) => genre !== option) : [...current, option])
+  }
+
+  function clearFilters() {
+    setExcludedGenres([])
+    setMinYear('')
+    setMaxYear('')
+    setAddedByFilter('')
+  }
 
   useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current) }, [])
 
@@ -168,8 +204,8 @@ function App() {
   }
 
   function spin() {
-    if (spinning || backlog.length === 0) return
-    const selected = pickWeightedMovie(backlog)
+    if (spinning || eligible.length === 0) return
+    const selected = pickWeightedMovie(eligible)
     if (!selected) return
     const segment = segments.find((item) => item.movie.id === selected.id)
     if (!segment) return
@@ -178,7 +214,7 @@ function App() {
     const current = ((rotation % 360) + 360) % 360
     const alignment = (((-center - current) % 360) + 360) % 360
     setWinner(null)
-    setSpinMovies(backlog)
+    setSpinMovies(eligible)
     setSpinning(true)
     setRotation(rotation + 360 * 6 + alignment)
     spinTimer.current = setTimeout(() => {
@@ -228,15 +264,40 @@ function App() {
               <h1>Pick a movie.<br /><em>Leave it to chance.</em></h1>
               <p>A shared list of films you want to see. Give your favorites a little extra luck, then spin to decide what’s on tonight.</p>
             </div>
-            <div className="intro-count"><strong>{backlog.length}</strong><span>MOVIES IN THE MIX</span></div>
+            <div className="intro-count"><strong>{eligible.length}</strong><span>MOVIES IN THE MIX</span></div>
+          </section>
+
+          <section className="filter-card" aria-label="Tonight’s wheel filters">
+            <div className="filter-heading">
+              <div><span className="eyebrow">SET THE MOOD</span><h2>Tonight’s filters</h2><p>Choose what can land on the wheel. Every movie stays in your watchlist.</p></div>
+              <button type="button" className="clear-filters" onClick={clearFilters} disabled={!hasFilters || spinning}>Clear filters</button>
+            </div>
+            <div className="filter-controls">
+              <fieldset className="genre-filter" disabled={spinning}>
+                <legend>SKIP GENRES</legend>
+                <div className="genre-options">
+                  {genreChoices.length === 0 ? <span className="filter-placeholder">Add movies to see genres here.</span> : genreChoices.map((option) => (
+                    <label key={option} className={`genre-option ${excludedGenres.includes(option) ? 'is-excluded' : ''}`}>
+                      <input type="checkbox" checked={excludedGenres.includes(option)} onChange={() => toggleGenre(option)} />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="filter-side">
+                <div className="year-filter"><label>RELEASE YEAR</label><div className="year-inputs"><input aria-label="From year" type="number" min="1888" max="2100" step="1" placeholder="From" value={minYear} onChange={(event) => setMinYear(event.target.value)} disabled={spinning} /><span>to</span><input aria-label="To year" type="number" min="1888" max="2100" step="1" placeholder="To" value={maxYear} onChange={(event) => setMaxYear(event.target.value)} disabled={spinning} /></div></div>
+                <div className="contributor-filter"><label htmlFor="filter-added-by">ADDED BY</label><select id="filter-added-by" value={addedByFilter} onChange={(event) => setAddedByFilter(event.target.value)} disabled={spinning}><option value="">Anyone</option>{contributorIds.map((id) => <option key={id} value={id}>{contributorName(id)}</option>)}</select></div>
+              </div>
+            </div>
+            <p className={`filter-feedback ${invalidYearRange ? 'is-invalid' : ''}`} role="status">{invalidYearRange ? 'Enter years from 1888 to 2100, with “from” no later than “to”.' : `${eligible.length} of ${backlog.length} backlog ${backlog.length === 1 ? 'movie' : 'movies'} in tonight’s mix${hasFilters && eligible.length === 0 && backlog.length > 0 ? ' — adjust or clear filters to spin' : ''}.`}</p>
           </section>
 
           <div className="dashboard">
             <section className="wheel-card" aria-label="Spin the movie wheel">
               <div className="card-topline"><span>01 / THE DECIDER</span><span className="tiny-star">✦</span></div>
-              <Wheel movies={spinMovies ?? backlog} rotation={rotation} spinning={spinning} />
+              <Wheel movies={spinMovies ?? eligible} rotation={rotation} spinning={spinning} hasBacklog={backlog.length > 0} />
               <div className="wheel-actions">
-                <button className="spin-button" onClick={spin} disabled={spinning || backlog.length === 0}>{spinning ? 'SPINNING…' : 'SPIN THE WHEEL'} <span>↗</span></button>
+                <button className="spin-button" onClick={spin} disabled={spinning || eligible.length === 0}>{spinning ? 'SPINNING…' : 'SPIN THE WHEEL'} <span>↗</span></button>
                 <p>More weight means a bigger slice and a better chance.</p>
               </div>
             </section>
@@ -263,7 +324,7 @@ function App() {
                 {backlog.length === 0 ? <div className="empty-list">Your watchlist is empty. Add a movie to give the wheel its first spin.</div> : backlog.map((movie, index) => (
                   <article className="movie-row" key={movie.id}>
                     <span className="movie-index">{String(index + 1).padStart(2, '0')}</span>
-                    <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> {movie.genre ?? 'Genre not set'} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance</span><span className="movie-byline">Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div>
+                    <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> {movie.genre ?? 'Genre not set'} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {chanceById.has(movie.id) ? `${((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance` : 'Out tonight'}</span><span className="movie-byline">Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div>
                     <div className="movie-actions"><button title="Edit movie" aria-label={`Edit ${movie.title}`} onClick={() => startEdit(movie)}>Edit</button><button title="Mark watched" aria-label={`Mark ${movie.title} watched`} onClick={() => void changeStatus(movie)}>Watched</button><button title="Remove movie" aria-label={`Remove ${movie.title}`} onClick={() => void removeMovie(movie)}>×</button></div>
                   </article>
                 ))}
