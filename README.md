@@ -26,7 +26,7 @@ The current version has one shared backlog. Membership is managed in the Firebas
 The repository includes a GitHub Actions workflow for `https://pneumann99.github.io/movie-wheel-of-fortune/`.
 
 1. In **Repository Settings → Secrets and variables → Actions → Secrets**, add four **repository secrets** named `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID` using the same values as `.env.local`.
-2. Add an **Actions variable** named `TMDB_WORKER_URL` containing the deployed Cloudflare Worker URL (for example, `https://movie-wheel-tmdb.your-subdomain.workers.dev`). This URL is public; it contains no credential.
+2. In **Repository Settings → Secrets and variables → Actions → Variables → New repository variable**, add `TMDB_WORKER_URL` containing the full deployed Cloudflare Worker URL (for example, `https://movie-wheel-tmdb.your-subdomain.workers.dev`). The build job reads this repository variable and passes it to Vite as `VITE_TMDB_WORKER_URL`. A variable under **Environments → github-pages** is not available to that build job. This URL is public; it contains no credential.
 3. In **Repository Settings → Pages**, set **Source** to **GitHub Actions**.
 4. Push to `main`. The workflow runs tests, lint, and a build before deploying. It fails if Firebase settings or the Worker URL are missing, so the hosted app cannot silently lose its shared features.
 
