@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { getWheelSegments, pickWeightedMovie, type WheelSegment } from './wheel'
 import { filterMovies } from './filters'
 import { useMovieStore } from './useMovieStore'
+import { MovieSearch } from './MovieSearch'
+import { isTmdbConfigured, loadTmdbMovie, searchTmdbMovies } from './tmdbApi'
+import type { TmdbMovieDetails } from './tmdbTypes'
 import { genres, streamingServices, type Movie, type MovieDetails, type MovieGenre, type StreamingService } from './types'
 import './App.css'
 
@@ -129,6 +132,17 @@ function App() {
     setMinYear('')
     setMaxYear('')
     setAddedByFilter('')
+  }
+
+  function useTmdbMovie(movie: TmdbMovieDetails) {
+    setTitle(movie.title)
+    setYear(movie.year?.toString() ?? '')
+    setWeight(1)
+    setGenre(movie.genre)
+    setStreamingService(movie.streamingService ?? '')
+    setEditingId(null)
+    setError(null)
+    document.querySelector('#movie-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current) }, [])
@@ -305,6 +319,8 @@ function App() {
             <section className="list-card">
               <div className="card-topline"><span>02 / THE BACKLOG</span><span>{backlog.length} FILMS</span></div>
               <div className="list-heading"><h2>The watchlist</h2><p>Every great movie night starts somewhere.</p></div>
+              {isTmdbConfigured && <MovieSearch searchMovies={searchTmdbMovies} loadMovie={loadTmdbMovie} onSelect={useTmdbMovie} />}
+              {!store.preview && !isTmdbConfigured && <p className="movie-search-unavailable">TMDB search is not configured yet. You can still add movies manually.</p>}
               <form id="movie-form" className="movie-form" onSubmit={(event) => void handleSubmit(event)}>
                 <label htmlFor="movie-title">MOVIE TITLE</label>
                 <input id="movie-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Everything Everywhere All at Once" maxLength={120} />
@@ -333,6 +349,7 @@ function App() {
           </div>
 
           {watched.length > 0 && <section className="watched-section"><div><span className="eyebrow">THE CREDITS</span><h2>Already watched</h2></div><div className="watched-list">{watched.map((movie) => <div className="watched-row" key={movie.id}><div className="watched-info"><strong>{movie.title}{movie.year ? ` (${movie.year})` : ''}</strong><span>{movie.genre ?? 'Genre not set'} <span className="separator">·</span> Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div><div><button onClick={() => void changeStatus(movie)}>Back to list</button><button aria-label={`Remove ${movie.title}`} onClick={() => void removeMovie(movie)}>×</button></div></div>)}</div></section>}
+          {isTmdbConfigured && <footer className="data-credits"><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}tmdb-logo.svg`} alt="TMDB" /></a><div><strong>Data credits</strong><p>This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is powered by <a href="https://www.justwatch.com" target="_blank" rel="noreferrer">JustWatch</a> and may change.</p></div></footer>}
         </main>
       )}
 

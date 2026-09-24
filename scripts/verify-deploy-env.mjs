@@ -5,3 +5,11 @@ if (missing.length) {
   console.error(`Missing GitHub Actions secrets: ${missing.join(', ')}`)
   process.exit(1)
 }
+
+try {
+  const workerUrl = new URL(process.env.VITE_TMDB_WORKER_URL)
+  if (workerUrl.protocol !== 'https:') throw new Error('HTTPS required')
+} catch {
+  console.error('Missing or invalid GitHub Actions variable: VITE_TMDB_WORKER_URL')
+  process.exit(1)
+}

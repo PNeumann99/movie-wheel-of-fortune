@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node --test src/*.test.ts",
+    "test": "node --test src/*.test.ts worker/*.test.mjs",
     "test:rules": "npx --yes firebase-tools@15.31.0 emulators:exec --only firestore --project demo-movie-wheel \"node --test tests/firestore.rules.test.mjs\"",
     "lint": "oxlint",
+    "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
+    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "wrangler": "^4.138.0"
   }
 }
