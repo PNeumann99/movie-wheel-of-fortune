@@ -83,6 +83,14 @@ main{max-width:1500px;margin:auto;padding:0 54px 90px}.intro{min-height:340px;di
 .movie-search-result button{min-height:34px;padding:0 10px}
 @media(max-width:650px){.movie-search{padding:16px 13px}.movie-search-result{align-items:flex-start}.movie-search-result img,.movie-search-no-poster{width:38px;height:57px}.movie-search-result button{align-self:center}.movie-search-result p{display:none}}
 .movie-search-unavailable{margin:0 0 18px;color:#aeb0c1;font-size:12px}
+.kind-picker{display:flex;align-items:center;gap:8px;margin:0 0 18px}
+.kind-picker>span{margin-right:5px;color:#bdbecc;font-size:10px;font-weight:700;letter-spacing:.16em}
+.kind-picker button{min-height:40px;padding:0 17px;border:1px solid #ffffff35;border-radius:3px;background:#2a2e43;color:#d8d9e2;font-size:12px;cursor:pointer}
+.kind-picker button[aria-pressed=true]{border-color:#f8b85e;background:#f8b85e26;color:#ffe0ad}
+.kind-picker button:hover{border-color:#f8b85eaa}
+.kind-picker button:focus-visible{outline:2px solid #f8b85e;outline-offset:2px}
+.series-hint{margin:0 0 18px;color:#aeb0c1;font-size:12px;line-height:1.5}
+.runtime-field{margin-top:7px}
 .data-credits{display:flex;align-items:center;gap:16px;margin-top:52px;padding-top:22px;border-top:1px solid #ffffff18;color:#aeb0c1}
 .data-credits img{display:block;width:64px;height:auto}
 .data-credits strong{color:#e9e4df;font-size:12px}

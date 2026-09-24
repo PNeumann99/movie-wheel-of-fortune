@@ -33,7 +33,7 @@ export function RemoveMovieDialog({ movie, removing, error, onCancel, onConfirm 
     >
       <div className="remove-dialog-icon" aria-hidden="true">×</div>
       <span className="eyebrow">REMOVE FROM THE LIST</span>
-      <h2 id="remove-dialog-title">Remove this movie?</h2>
+      <h2 id="remove-dialog-title">Remove this {movie.kind === 'series' ? 'series' : 'movie'}?</h2>
       <p id="remove-dialog-description"><strong>“{movie.title}”</strong> will be removed from the shared watchlist. This cannot be undone.</p>
       {error && <p className="remove-dialog-error" role="alert">{error}</p>}
       <div className="remove-dialog-actions">

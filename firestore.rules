@@ -7,10 +7,13 @@ service cloud.firestore {
     }
 
     function validMovie(data) {
-      return data.keys().hasOnly(['title', 'year', 'weight', 'status', 'createdAt', 'addedBy', 'addedByName', 'genre', 'streamingService'])
+      return data.keys().hasOnly(['title', 'kind', 'year', 'runtimeMinutes', 'weight', 'status', 'createdAt', 'addedBy', 'addedByName', 'genre', 'streamingService'])
         && data.keys().hasAll(['title', 'year', 'weight', 'status', 'createdAt', 'addedBy'])
         && data.title is string && data.title.size() > 0 && data.title.size() <= 120
+        && data.get('kind', 'movie') in ['movie', 'series']
         && (data.year == null || (data.year is int && data.year >= 1888 && data.year <= 2100))
+        && (data.get('runtimeMinutes', null) == null || (data.runtimeMinutes is int && data.runtimeMinutes >= 1 && data.runtimeMinutes <= 1440))
+        && (data.get('kind', 'movie') != 'series' || data.get('runtimeMinutes', null) == null)
         && data.weight is int && data.weight >= 1 && data.weight <= 10
         && data.status in ['backlog', 'watched']
         && data.createdAt is int
@@ -36,7 +39,7 @@ service cloud.firestore {
       allow read: if isMember();
       allow create: if isMember()
         && validMovie(request.resource.data)
-        && request.resource.data.keys().hasAll(['addedByName', 'genre', 'streamingService'])
+        && request.resource.data.keys().hasAll(['addedByName', 'genre', 'streamingService', 'kind', 'runtimeMinutes'])
         && request.resource.data.addedByName is string
         && request.resource.data.genre is string
         && request.resource.data.addedBy == request.auth.uid;
@@ -46,7 +49,9 @@ service cloud.firestore {
         && request.resource.data.addedBy == resource.data.addedBy
         && request.resource.data.get('addedByName', null) == resource.data.get('addedByName', null)
         && (!resource.data.keys().hasAny(['genre']) || request.resource.data.keys().hasAny(['genre']))
-        && (!resource.data.keys().hasAny(['streamingService']) || request.resource.data.keys().hasAny(['streamingService']));
+        && (!resource.data.keys().hasAny(['streamingService']) || request.resource.data.keys().hasAny(['streamingService']))
+        && (!resource.data.keys().hasAny(['kind']) || request.resource.data.keys().hasAny(['kind']))
+        && (!resource.data.keys().hasAny(['runtimeMinutes']) || request.resource.data.keys().hasAny(['runtimeMinutes']));
       allow delete: if isMember();
     }
   }

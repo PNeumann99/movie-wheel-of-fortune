@@ -11,6 +11,7 @@ export interface TmdbSearchResult {
 export interface TmdbMovieDetails {
   title: string
   year: number | null
+  runtimeMinutes: number | null
   genre: MovieGenre
   streamingService: StreamingService | null
 }

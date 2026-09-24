@@ -111,7 +111,7 @@ export function useMovieStore() {
     await addDoc(collection(db, 'movies'), movie)
   }
 
-  async function updateMovie(id: string, changes: Partial<Pick<Movie, 'title' | 'year' | 'weight' | 'status' | 'genre' | 'streamingService'>>) {
+  async function updateMovie(id: string, changes: Partial<Pick<Movie, 'title' | 'kind' | 'year' | 'runtimeMinutes' | 'weight' | 'status' | 'genre' | 'streamingService'>>) {
     if (!db) {
       setMovies((current) => current.map((movie) => movie.id === id ? { ...movie, ...changes } : movie))
       return
