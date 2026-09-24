@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node --test src/wheel.test.ts",
+    "test": "node --test src/*.test.ts",
     "test:rules": "npx --yes firebase-tools@15.31.0 emulators:exec --only firestore --project demo-movie-wheel \"node --test tests/firestore.rules.test.mjs\"",
     "lint": "oxlint",
     "preview": "vite preview"
