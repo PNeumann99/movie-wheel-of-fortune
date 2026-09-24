@@ -3,7 +3,7 @@
   "main": "index.js",
   "compatibility_date": "2026-09-24",
   "vars": {
-    "FIREBASE_PROJECT_ID": "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID",
+    "FIREBASE_PROJECT_ID": "movie-wheel-of-fortune",
     "ALLOWED_ORIGINS": "https://pneumann99.github.io,http://localhost:5173,http://127.0.0.1:5173"
   }
 }

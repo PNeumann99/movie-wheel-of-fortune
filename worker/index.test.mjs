@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { handleRequest } from './index.js'
+import worker, { handleRequest } from './index.js'
 
 const env = {
   FIREBASE_PROJECT_ID: 'demo-movie-wheel',
@@ -77,4 +77,17 @@ test('a failed membership check never reaches TMDB', async () => {
   })
   assert.equal(response.status, 503)
   assert.equal(calls, 1)
+})
+
+test('the deployed fetch handler does not treat Worker context as a fetch function', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url) => url.includes('firestore.googleapis.com')
+    ? new Response('{}')
+    : Response.json({ results: [] })
+  try {
+    const response = await worker.fetch(request('/search?q=Arrival'), env, { waitUntil() {} })
+    assert.equal(response.status, 200)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })

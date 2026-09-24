@@ -95,4 +95,8 @@ export async function handleRequest(request, env, fetcher = fetch) {
   }
 }
 
-export default { fetch: handleRequest }
+export default {
+  fetch(request, env) {
+    return handleRequest(request, env)
+  },
+}
