@@ -58,16 +58,17 @@ export async function handleRequest(request, env, fetcher = fetch) {
 
   const query = url.searchParams.get('q')?.trim() ?? ''
   if (isSearch && (query.length < 2 || query.length > 100)) return reply(400, { error: 'Search for 2 to 100 characters.' }, origin)
-  if (!env.FIREBASE_PROJECT_ID || !env.TMDB_READ_ACCESS_TOKEN) return reply(503, { error: 'Movie search is not configured.' }, origin)
+  const projectId = env.FIREBASE_PROJECT_ID_SECRET
+  if (!projectId || !env.TMDB_READ_ACCESS_TOKEN) return reply(503, { error: 'Movie search is not configured.' }, origin)
 
   const bearer = /^Bearer (\S+)$/.exec(request.headers.get('Authorization') ?? '')?.[1]
-  const userId = bearer && decodedUserId(bearer, env.FIREBASE_PROJECT_ID)
+  const userId = bearer && decodedUserId(bearer, projectId)
   if (!userId) return reply(401, { error: 'Sign in to search movies.' }, origin)
 
   let membership
   try {
     // Firestore verifies the Firebase ID token and applies the member document rule.
-    membership = await fetcher(`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(env.FIREBASE_PROJECT_ID)}/databases/(default)/documents/members/${encodeURIComponent(userId)}`, {
+    membership = await fetcher(`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/members/${encodeURIComponent(userId)}`, {
       headers: { Authorization: `Bearer ${bearer}` },
       signal: AbortSignal.timeout(8000),
     })

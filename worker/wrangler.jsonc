@@ -3,7 +3,9 @@
   "main": "index.js",
   "compatibility_date": "2026-09-24",
   "vars": {
-    "FIREBASE_PROJECT_ID": "movie-wheel-of-fortune",
     "ALLOWED_ORIGINS": "https://pneumann99.github.io,http://localhost:5173,http://127.0.0.1:5173"
+  },
+  "secrets": {
+    "required": ["FIREBASE_PROJECT_ID_SECRET", "TMDB_READ_ACCESS_TOKEN"]
   }
 }

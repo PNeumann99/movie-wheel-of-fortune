@@ -3,13 +3,13 @@ import test from 'node:test'
 import worker, { handleRequest } from './index.js'
 
 const env = {
-  FIREBASE_PROJECT_ID: 'demo-movie-wheel',
+  FIREBASE_PROJECT_ID_SECRET: 'demo-movie-wheel',
   TMDB_READ_ACCESS_TOKEN: 'server-secret',
   ALLOWED_ORIGINS: 'https://pneumann99.github.io',
 }
 const token = `header.${Buffer.from(JSON.stringify({
-  aud: env.FIREBASE_PROJECT_ID,
-  iss: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
+  aud: env.FIREBASE_PROJECT_ID_SECRET,
+  iss: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID_SECRET}`,
   sub: 'alice',
 })).toString('base64url')}.signature`
 

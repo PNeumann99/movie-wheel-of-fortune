@@ -37,12 +37,13 @@ The secret values stay out of the Git repository and GitHub's repository setting
 The app searches TMDB through a [Cloudflare Worker](./worker/index.js), so the TMDB API Read Access Token never enters the Git repository or browser bundle. Do **not** add the TMDB token to a `VITE_` variable or a GitHub Actions build secret. The Worker can run on Cloudflare's free plan; Firebase remains on its free plan. Only signed-in members can use the Worker: it sends their Firebase ID token to the Firestore REST API to check their `members/{uid}` document under the existing security rules.
 
 1. Create a Cloudflare account and run `npx wrangler login` locally.
-2. In [worker/wrangler.jsonc](./worker/wrangler.jsonc), confirm that `FIREBASE_PROJECT_ID` matches the **Project ID** shown in Firebase Console → Project settings → General. Review `ALLOWED_ORIGINS` if your GitHub Pages or local development origin differs.
-3. Run `npm run worker:deploy`. Wrangler prints a public Worker URL.
-4. Run `npx wrangler secret put TMDB_READ_ACCESS_TOKEN --config worker/wrangler.jsonc`. Paste the **API Read Access Token** at Wrangler's prompt. Cloudflare stores it as a Worker secret and deploys a new Worker version. Do not put this value in source code, `.env.local`, or GitHub Actions.
-5. Add the Worker URL as the GitHub Actions variable `TMDB_WORKER_URL` from the previous section. For local testing, set `VITE_TMDB_WORKER_URL` to that URL in your ignored `.env.local` and restart Vite.
+2. Review `ALLOWED_ORIGINS` in [worker/wrangler.jsonc](./worker/wrangler.jsonc) if your GitHub Pages or local development origin differs.
+3. Run `npx wrangler secret put FIREBASE_PROJECT_ID_SECRET --config worker/wrangler.jsonc`. Paste the **Project ID** shown in Firebase Console → Project settings → General. The project ID is public in the browser app, but this keeps it out of the Worker configuration in Git.
+4. Run `npx wrangler secret put TMDB_READ_ACCESS_TOKEN --config worker/wrangler.jsonc`. Paste the **API Read Access Token** at Wrangler's prompt. Cloudflare stores it as a Worker secret. Do not put this value in source code, `.env.local`, or GitHub Actions.
+5. Run `npm run worker:deploy`. Wrangler prints a public Worker URL. Future deploys preserve the two Worker secrets.
+6. Add the Worker URL as the GitHub Actions variable `TMDB_WORKER_URL` from the previous section. For local testing, set `VITE_TMDB_WORKER_URL` to that URL in your ignored `.env.local` and restart Vite.
 
-For fully local Worker development, copy [worker/.dev.vars.example](./worker/.dev.vars.example) to `worker/.dev.vars`, fill in the token, and run `npm run worker:dev`. The file is Git-ignored. Set `VITE_TMDB_WORKER_URL=http://127.0.0.1:8787` in `.env.local` and use a Firebase signed-in member account in the local app. The Worker still checks the real Firestore membership document.
+For fully local Worker development, copy [worker/.dev.vars.example](./worker/.dev.vars.example) to `worker/.dev.vars`, fill in the token and Firebase project ID, and run `npm run worker:dev`. The file is Git-ignored. Set `VITE_TMDB_WORKER_URL=http://127.0.0.1:8787` in `.env.local` and use a Firebase signed-in member account in the local app. The Worker still checks the real Firestore membership document.
 
 Search results fill title, release year, the first matching app genre, and a supported German subscription service when TMDB lists one. Weight starts at 1 and the contributor comes from Google sign-in. Review the form before saving; TMDB availability data can change. Manual entry remains available. The initial integration covers TMDB search, not Letterboxd list imports.
 
