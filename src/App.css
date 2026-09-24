@@ -89,3 +89,17 @@ main{max-width:1500px;margin:auto;padding:0 54px 90px}.intro{min-height:340px;di
 .data-credits p{max-width:800px;margin:4px 0 0;font-size:11px;line-height:1.5}
 .data-credits a{color:#f8b85e}
 @media(max-width:650px){.data-credits{align-items:flex-start}.data-credits img{width:52px}}
+.remove-dialog{position:fixed;inset:0;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);margin:auto;padding:32px;border:1px solid #dd796988;border-radius:8px;background:#252a40;color:#f4f1e9;box-shadow:0 30px 90px #000a;overflow:auto}
+.remove-dialog::backdrop{background:#070915d9}
+.remove-dialog-icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:22px;border:1px solid #dd7969aa;border-radius:50%;background:#dd796921;color:#ffb4a9;font-size:27px;line-height:1}
+.remove-dialog h2{margin:9px 0 12px;font-family:'Playfair Display',serif;font-size:34px;line-height:1.12}
+.remove-dialog>p{margin:0;color:#bfc0cd;font-size:14px;line-height:1.65;overflow-wrap:anywhere}
+.remove-dialog>p strong{color:#f4f1e9;font-weight:600}
+.remove-dialog .remove-dialog-error{margin-top:16px;padding:10px 12px;border:1px solid #ff8d9b66;border-radius:3px;background:#7a2b3a40;color:#ffc3cb;font-size:12px}
+.remove-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:28px}
+.remove-dialog-actions button{min-height:46px;padding:0 18px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.08em}
+.remove-dialog-cancel{border:1px solid #ffffff3d;background:transparent;color:#e0dee7}
+.remove-dialog-cancel:hover:not(:disabled){background:#ffffff12}
+.remove-dialog-confirm{border:0;background:#dd7969;color:#201b27}
+.remove-dialog-confirm:hover:not(:disabled){background:#f19786}
+@media(max-width:600px){.remove-dialog{inset:auto 0 0;width:100%;max-width:none;max-height:calc(100dvh - 12px);margin:0;padding:25px 20px calc(20px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0}.remove-dialog h2{font-size:30px}.remove-dialog-actions{flex-direction:column}.remove-dialog-actions button{width:100%;min-height:48px}}
