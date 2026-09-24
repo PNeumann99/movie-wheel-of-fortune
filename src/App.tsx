@@ -3,6 +3,7 @@ import { getWheelSegments, pickWeightedMovie, type WheelSegment } from './wheel'
 import { filterMovies } from './filters'
 import { useMovieStore } from './useMovieStore'
 import { MovieSearch } from './MovieSearch'
+import { RemoveMovieDialog } from './RemoveMovieDialog'
 import { isTmdbConfigured, loadTmdbMovie, searchTmdbMovies } from './tmdbApi'
 import type { TmdbMovieDetails } from './tmdbTypes'
 import { genres, streamingServices, type Movie, type MovieDetails, type MovieGenre, type StreamingService } from './types'
@@ -84,6 +85,10 @@ function App() {
   const [spinning, setSpinning] = useState(false)
   const [spinMovies, setSpinMovies] = useState<Movie[] | null>(null)
   const [winner, setWinner] = useState<Movie | null>(null)
+  const [movieToRemove, setMovieToRemove] = useState<Movie | null>(null)
+  const [removingMovie, setRemovingMovie] = useState(false)
+  const [removeError, setRemoveError] = useState<string | null>(null)
+  const removeTrigger = useRef<HTMLButtonElement | null>(null)
   const spinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const backlog = useMemo(() => store.movies.filter((movie) => movie.status === 'backlog'), [store.movies])
@@ -190,15 +195,37 @@ function App() {
     }
   }
 
-  async function removeMovie(movie: Movie) {
-    if (!window.confirm(`Remove “${movie.title}” from the list?`)) return
-    setError(null)
+  function askToRemove(movie: Movie, trigger: HTMLButtonElement) {
+    removeTrigger.current = trigger
+    setRemoveError(null)
+    setMovieToRemove(movie)
+  }
+
+  function closeRemoveDialog() {
+    const trigger = removeTrigger.current
+    const heading = movieToRemove?.status === 'watched' ? '.watched-section h2' : '.list-heading h2'
+    setMovieToRemove(null)
+    setRemoveError(null)
+    requestAnimationFrame(() => {
+      if (trigger?.isConnected) trigger.focus()
+      else (document.querySelector<HTMLElement>(heading) ?? document.querySelector<HTMLElement>('.list-heading h2'))?.focus()
+    })
+  }
+
+  async function confirmRemoveMovie() {
+    const movie = movieToRemove
+    if (!movie || removingMovie) return
+    setRemovingMovie(true)
+    setRemoveError(null)
     try {
       await store.removeMovie(movie.id)
       if (editingId === movie.id) resetForm()
       if (winner?.id === movie.id) closeResult()
+      closeRemoveDialog()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not remove the movie.')
+      setRemoveError(cause instanceof Error ? cause.message : 'Could not remove the movie.')
+    } finally {
+      setRemovingMovie(false)
     }
   }
 
@@ -318,7 +345,7 @@ function App() {
 
             <section className="list-card">
               <div className="card-topline"><span>02 / THE BACKLOG</span><span>{backlog.length} FILMS</span></div>
-              <div className="list-heading"><h2>The watchlist</h2><p>Every great movie night starts somewhere.</p></div>
+              <div className="list-heading"><h2 tabIndex={-1}>The watchlist</h2><p>Every great movie night starts somewhere.</p></div>
               {isTmdbConfigured && <MovieSearch searchMovies={searchTmdbMovies} loadMovie={loadTmdbMovie} onSelect={useTmdbMovie} />}
               {!store.preview && !isTmdbConfigured && <p className="movie-search-unavailable">TMDB search is not configured yet. You can still add movies manually.</p>}
               <form id="movie-form" className="movie-form" onSubmit={(event) => void handleSubmit(event)}>
@@ -341,19 +368,20 @@ function App() {
                   <article className="movie-row" key={movie.id}>
                     <span className="movie-index">{String(index + 1).padStart(2, '0')}</span>
                     <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> {movie.genre ?? 'Genre not set'} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {chanceById.has(movie.id) ? `${((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance` : 'Out tonight'}</span><span className="movie-byline">Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div>
-                    <div className="movie-actions"><button title="Edit movie" aria-label={`Edit ${movie.title}`} onClick={() => startEdit(movie)}>Edit</button><button title="Mark watched" aria-label={`Mark ${movie.title} watched`} onClick={() => void changeStatus(movie)}>Watched</button><button title="Remove movie" aria-label={`Remove ${movie.title}`} onClick={() => void removeMovie(movie)}>×</button></div>
+                    <div className="movie-actions"><button title="Edit movie" aria-label={`Edit ${movie.title}`} onClick={() => startEdit(movie)}>Edit</button><button title="Mark watched" aria-label={`Mark ${movie.title} watched`} onClick={() => void changeStatus(movie)}>Watched</button><button title="Remove movie" aria-label={`Remove ${movie.title}`} onClick={(event) => askToRemove(movie, event.currentTarget)}>×</button></div>
                   </article>
                 ))}
               </div>
             </section>
           </div>
 
-          {watched.length > 0 && <section className="watched-section"><div><span className="eyebrow">THE CREDITS</span><h2>Already watched</h2></div><div className="watched-list">{watched.map((movie) => <div className="watched-row" key={movie.id}><div className="watched-info"><strong>{movie.title}{movie.year ? ` (${movie.year})` : ''}</strong><span>{movie.genre ?? 'Genre not set'} <span className="separator">·</span> Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div><div><button onClick={() => void changeStatus(movie)}>Back to list</button><button aria-label={`Remove ${movie.title}`} onClick={() => void removeMovie(movie)}>×</button></div></div>)}</div></section>}
+          {watched.length > 0 && <section className="watched-section"><div><span className="eyebrow">THE CREDITS</span><h2 tabIndex={-1}>Already watched</h2></div><div className="watched-list">{watched.map((movie) => <div className="watched-row" key={movie.id}><div className="watched-info"><strong>{movie.title}{movie.year ? ` (${movie.year})` : ''}</strong><span>{movie.genre ?? 'Genre not set'} <span className="separator">·</span> Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div><div><button onClick={() => void changeStatus(movie)}>Back to list</button><button aria-label={`Remove ${movie.title}`} onClick={(event) => askToRemove(movie, event.currentTarget)}>×</button></div></div>)}</div></section>}
           {isTmdbConfigured && <footer className="data-credits"><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}tmdb-logo.svg`} alt="TMDB" /></a><div><strong>Data credits</strong><p>This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is powered by <a href="https://www.justwatch.com" target="_blank" rel="noreferrer">JustWatch</a> and may change.</p></div></footer>}
         </main>
       )}
 
       {winner && <div className="result-overlay" role="dialog" aria-modal="true" aria-label="Movie selected" onClick={closeResult}><div className="result-card" onClick={(event) => event.stopPropagation()}><span className="eyebrow">AND TONIGHT’S PICK IS…</span><div className="result-sparkle">✦</div><h2>{winner.title}</h2><p>{winner.year ?? 'Year unknown'} <span className="separator">·</span> {winner.genre ?? 'Genre not set'}</p><p className="result-byline">Added by {authorName(winner)}{winner.streamingService && <> <span className="separator">·</span> Streaming: {winner.streamingService}</>}</p><div className="result-actions"><button className="primary-button" onClick={() => void changeStatus(winner)}>Mark as watched</button><button className="secondary-button" onClick={closeResult}>Keep in the mix</button></div></div></div>}
+      {movieToRemove && <RemoveMovieDialog movie={movieToRemove} removing={removingMovie} error={removeError} onCancel={closeRemoveDialog} onConfirm={() => void confirmRemoveMovie()} />}
     </div>
   )
 }
