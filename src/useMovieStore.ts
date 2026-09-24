@@ -7,9 +7,9 @@ import type { Movie, MovieDetails } from './types'
 const previewKey = 'movie-wheel-preview-v1'
 
 const sampleMovies: Movie[] = [
-  { id: 'arrival', title: 'Arrival', year: 2016, weight: 3, status: 'backlog', createdAt: 3, addedBy: 'preview' },
-  { id: 'spirited-away', title: 'Spirited Away', year: 2001, weight: 2, status: 'backlog', createdAt: 2, addedBy: 'preview' },
-  { id: 'grand-budapest', title: 'The Grand Budapest Hotel', year: 2014, weight: 1, status: 'backlog', createdAt: 1, addedBy: 'preview' },
+  { id: 'arrival', title: 'Arrival', year: 2016, weight: 3, status: 'backlog', createdAt: 3, addedBy: 'preview', addedByName: 'Preview user', genre: 'Science Fiction', streamingService: null },
+  { id: 'spirited-away', title: 'Spirited Away', year: 2001, weight: 2, status: 'backlog', createdAt: 2, addedBy: 'preview', addedByName: 'Preview user', genre: 'Animation', streamingService: 'Netflix' },
+  { id: 'grand-budapest', title: 'The Grand Budapest Hotel', year: 2014, weight: 1, status: 'backlog', createdAt: 1, addedBy: 'preview', addedByName: 'Preview user', genre: 'Comedy', streamingService: 'Disney+' },
 ]
 
 function loadPreviewMovies(): Movie[] {
@@ -27,6 +27,7 @@ export function useMovieStore() {
   const [membershipLoading, setMembershipLoading] = useState(false)
   const [isMember, setIsMember] = useState(false)
   const [movies, setMovies] = useState<Movie[]>(() => isFirebaseConfigured ? [] : loadPreviewMovies())
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({})
   const [dataError, setDataError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export function useMovieStore() {
       setMembershipLoading(Boolean(nextUser))
       setIsMember(false)
       setMovies([])
+      setMemberNames({})
       setDataError(null)
     }, (error) => {
       setDataError(error.message)
@@ -65,6 +67,19 @@ export function useMovieStore() {
   }, [user, isMember])
 
   useEffect(() => {
+    const firestore = db
+    if (!firestore || !user || !isMember) return
+    const memberIds = [...new Set(movies.map((movie) => movie.addedBy))]
+    const unsubscribes = memberIds.map((id) => onSnapshot(doc(firestore, 'members', id), (snapshot) => {
+      const name = snapshot.data()?.name
+      if (typeof name === 'string' && name.trim()) {
+        setMemberNames((current) => ({ ...current, [id]: name.trim() }))
+      }
+    }, () => {}))
+    return () => unsubscribes.forEach((unsubscribe) => unsubscribe())
+  }, [user, isMember, movies])
+
+  useEffect(() => {
     if (!isFirebaseConfigured) localStorage.setItem(previewKey, JSON.stringify(movies))
   }, [movies])
 
@@ -79,7 +94,16 @@ export function useMovieStore() {
   }
 
   async function addMovie(details: MovieDetails) {
-    const movie = { ...details, status: 'backlog' as const, createdAt: Date.now(), addedBy: user?.uid ?? 'preview' }
+    const authorName = user
+      ? (memberNames[user.uid] || user.displayName || user.email || user.uid).trim().slice(0, 100)
+      : 'Preview user'
+    const movie = {
+      ...details,
+      status: 'backlog' as const,
+      createdAt: Date.now(),
+      addedBy: user?.uid ?? 'preview',
+      addedByName: authorName,
+    }
     if (!db) {
       setMovies((current) => [{ ...movie, id: crypto.randomUUID() }, ...current])
       return
@@ -87,7 +111,7 @@ export function useMovieStore() {
     await addDoc(collection(db, 'movies'), movie)
   }
 
-  async function updateMovie(id: string, changes: Partial<Pick<Movie, 'title' | 'year' | 'weight' | 'status'>>) {
+  async function updateMovie(id: string, changes: Partial<Pick<Movie, 'title' | 'year' | 'weight' | 'status' | 'genre' | 'streamingService'>>) {
     if (!db) {
       setMovies((current) => current.map((movie) => movie.id === id ? { ...movie, ...changes } : movie))
       return
@@ -110,6 +134,7 @@ export function useMovieStore() {
     membershipLoading,
     isMember,
     movies,
+    memberNames,
     dataError,
     signIn,
     logOut,
