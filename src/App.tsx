@@ -28,8 +28,10 @@ function Wheel({ movies, rotation, spinning }: { movies: Movie[], rotation: numb
         {segments.length === 0 && (
           <>
             <circle cx="250" cy="250" r="218" fill="#31364e" />
-            <text x="250" y="244" className="empty-wheel-text">YOUR NEXT MOVIE</text>
-            <text x="250" y="275" className="empty-wheel-subtext">starts here</text>
+            <circle cx="250" cy="250" r="184" className="empty-wheel-ring" />
+            <text x="250" y="216" className="empty-wheel-spark">✦</text>
+            <text x="250" y="258" className="empty-wheel-text">NO MOVIES YET</text>
+            <text x="250" y="290" className="empty-wheel-subtext">Add one to get started</text>
           </>
         )}
         {segments.map((segment, index) => {
@@ -49,8 +51,12 @@ function Wheel({ movies, rotation, spinning }: { movies: Movie[], rotation: numb
             </g>
           )
         })}
-        <circle cx="250" cy="250" r="39" fill="#20243b" stroke="#fff4df" strokeWidth="5" />
-        <circle cx="250" cy="250" r="12" fill="#f8b85e" />
+        {segments.length > 0 && (
+          <>
+            <circle cx="250" cy="250" r="39" fill="#20243b" stroke="#fff4df" strokeWidth="5" />
+            <circle cx="250" cy="250" r="12" fill="#f8b85e" />
+          </>
+        )}
       </svg>
     </div>
   )
