@@ -42,11 +42,11 @@ test('movie details include German subscription availability', async () => {
   const fetcher = async (url) => {
     if (url.includes('firestore.googleapis.com')) return new Response('{}')
     if (url.endsWith('/watch/providers')) return Response.json({ results: { DE: { flatrate: [{ provider_id: 337 }] } } })
-    return Response.json({ title: 'Arrival', release_date: '2016-11-10', genres: [{ name: 'Science Fiction' }] })
+    return Response.json({ title: 'Arrival', release_date: '2016-11-10', runtime: 116, genres: [{ name: 'Science Fiction' }] })
   }
   const response = await handleRequest(request('/movie/13'), env, fetcher)
   assert.deepEqual(await response.json(), {
-    movie: { title: 'Arrival', year: 2016, genre: 'Science Fiction', streamingService: 'Disney+' },
+    movie: { title: 'Arrival', year: 2016, runtimeMinutes: 116, genre: 'Science Fiction', streamingService: 'Disney+' },
   })
 })
 

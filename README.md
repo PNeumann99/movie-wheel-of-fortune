@@ -45,7 +45,9 @@ The app searches TMDB through a [Cloudflare Worker](./worker/index.js), so the T
 
 For fully local Worker development, copy [worker/.dev.vars.example](./worker/.dev.vars.example) to `worker/.dev.vars`, fill in the token and Firebase project ID, and run `npm run worker:dev`. The file is Git-ignored. Set `VITE_TMDB_WORKER_URL=http://127.0.0.1:8787` in `.env.local` and use a Firebase signed-in member account in the local app. The Worker still checks the real Firestore membership document.
 
-Search results fill title, release year, the first matching app genre, and a supported German subscription service when TMDB lists one. Weight starts at 1 and the contributor comes from Google sign-in. Review the form before saving; TMDB availability data can change. Manual entry remains available. The initial integration covers TMDB search, not Letterboxd list imports.
+Search results fill title, release year, runtime in minutes, the first matching app genre, and a supported German subscription service when TMDB lists one. Weight starts at 1 and the contributor comes from Google sign-in. Review the form before saving; TMDB availability data can change. Movies can also be added manually. Select **Series** to add a series manually; series have no runtime field and are included in the same wheel.
+
+For the movie runtime and series update, publish the revised [firestore.rules](./firestore.rules) in Firebase before merging the frontend branch into `main`, then run `npm run worker:deploy` to make TMDB runtimes available. Older watchlist entries remain valid and show an unknown length until edited. The Worker update preserves existing secrets.
 
 The [TMDB logo](./public/tmdb-logo.svg) is the approved TMDB artwork sourced through [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Tmdb.new.logo.svg) (Travis Bell, CC BY-SA 4.0). The app displays TMDB and JustWatch attribution in its data credits.
 

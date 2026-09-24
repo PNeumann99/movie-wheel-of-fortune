@@ -16,6 +16,10 @@ function posterPath(value: unknown): string | null {
   return typeof value === 'string' && /^\/[\w-]+\.(?:jpg|jpeg|png|webp)$/.test(value) ? value : null
 }
 
+function movieRuntime(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 1440 ? value : null
+}
+
 export function tmdbSearchResults(response: unknown): TmdbSearchResult[] {
   const raw = object(response)?.results
   if (!Array.isArray(raw)) return []
@@ -61,6 +65,7 @@ export function tmdbMovieDetails(detailsResponse: unknown, providersResponse: un
   return {
     title: details.title.trim().slice(0, 120),
     year: releaseYear(details.release_date),
+    runtimeMinutes: movieRuntime(details.runtime),
     genre: movieGenre(details),
     streamingService: germanStreamingService(providersResponse),
   }

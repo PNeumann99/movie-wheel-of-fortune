@@ -9,7 +9,9 @@ let outsider
 
 const movie = {
   title: 'Arrival',
+  kind: 'movie',
   year: 2016,
+  runtimeMinutes: 116,
   weight: 2,
   status: 'backlog',
   createdAt: 1,
@@ -43,13 +45,21 @@ after(async () => {
 test('members can create a movie with all required fields', async () => {
   await assertSucceeds(setDoc(doc(alice, 'movies/valid'), movie))
   await assertSucceeds(setDoc(doc(alice, 'movies/no-service'), { ...movie, streamingService: null }))
+  await assertSucceeds(setDoc(doc(alice, 'movies/series'), { ...movie, title: 'The Bear', kind: 'series', runtimeMinutes: null }))
+  await assertSucceeds(setDoc(doc(alice, 'movies/unknown-length'), { ...movie, runtimeMinutes: null }))
 })
 
 test('new movies require a genre and author name, and limit streaming choices', async () => {
   const { genre: _genre, ...withoutGenre } = movie
   const { addedByName: _name, ...withoutName } = movie
+  const { kind: _kind, ...withoutKind } = movie
+  const { runtimeMinutes: _runtime, ...withoutRuntime } = movie
   await assertFails(setDoc(doc(alice, 'movies/no-genre'), withoutGenre))
   await assertFails(setDoc(doc(alice, 'movies/no-name'), withoutName))
+  await assertFails(setDoc(doc(alice, 'movies/no-kind'), withoutKind))
+  await assertFails(setDoc(doc(alice, 'movies/no-runtime'), withoutRuntime))
+  await assertFails(setDoc(doc(alice, 'movies/series-with-runtime'), { ...movie, kind: 'series' }))
+  await assertFails(setDoc(doc(alice, 'movies/bad-runtime'), { ...movie, runtimeMinutes: 0 }))
   await assertFails(setDoc(doc(alice, 'movies/bad-service'), { ...movie, streamingService: 'Unknown' }))
   await assertFails(setDoc(doc(outsider, 'movies/nonmember'), { ...movie, addedBy: 'outsider' }))
 })
@@ -57,6 +67,7 @@ test('new movies require a genre and author name, and limit streaming choices', 
 test('existing movies remain editable, but the original contributor is fixed', async () => {
   await assertSucceeds(updateDoc(doc(alice, 'movies/legacy'), { status: 'watched' }))
   await assertSucceeds(updateDoc(doc(alice, 'movies/legacy'), { genre: 'Drama', streamingService: null }))
+  await assertSucceeds(updateDoc(doc(alice, 'movies/legacy'), { kind: 'series', runtimeMinutes: null }))
   await assertFails(updateDoc(doc(alice, 'movies/legacy'), { addedBy: 'alice' }))
   await assertFails(updateDoc(doc(alice, 'movies/legacy'), { addedByName: 'Alice' }))
 })
