@@ -1,6 +1,6 @@
 # Movie Night
 
-A shared movie backlog with a weighted wheel. Movies with a higher weight occupy a larger slice and have a proportionally higher chance of being selected.
+A shared movie and series backlog with a weighted wheel. Entries with a higher weight occupy a larger slice and have a proportionally higher chance of being selected. After a spin, **Not tonight** reduces the selected entry's wheel weight to 25% for the next three spins. The cooldown stays in that browser tab's session, including across page refreshes; it does not change the shared watchlist or other members' wheels.
 
 ## Run locally
 

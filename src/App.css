@@ -29,6 +29,10 @@ main{max-width:1500px;margin:auto;padding:0 54px 90px}.intro{min-height:340px;di
 .watched-info strong{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .watched-info>span{color:#a2a4b5;font-size:11px;line-height:1.45}
 .result-card .result-byline{font-size:13px;margin-top:8px}
+.movie-info .cooldown-note{color:#ffb4a9;font-size:11px;line-height:1.4}
+.cooldown-button{min-height:46px;padding:0 20px;border:1px solid #dd7969;border-radius:3px;background:#dd796922;color:#ffb4a9;font-size:12px;cursor:pointer}
+.cooldown-button:hover{background:#dd796944}
+.result-card .result-cooldown-hint{max-width:380px;margin:17px auto 0;color:#aeb0c1;font-size:11px;line-height:1.5}
 @media(max-width:650px){.details-row{grid-template-columns:1fr}.watched-row{align-items:flex-start}.watched-info>span{font-size:10px}}
 @media(max-width:650px){.movie-row{display:grid;grid-template-columns:25px minmax(0,1fr);gap:5px 9px}.movie-index{grid-row:1 / 3}.movie-info>span{font-size:11px;line-height:1.4}.movie-actions{grid-column:2;justify-content:flex-start;gap:14px}.movie-actions button{font-size:11px;padding:3px 0}}
 .filter-card{margin:0 0 22px;padding:24px 30px 20px;border:1px solid #ffffff17;border-radius:7px;background:#202437;box-shadow:0 15px 45px #080a1638}
