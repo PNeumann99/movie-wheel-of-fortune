@@ -15,9 +15,9 @@ Without Firebase settings, the app runs in **local preview mode**. Preview movie
 
 1. Create a Firebase project and register a **Web app** in the [Firebase console](https://console.firebase.google.com/).
 2. Enable **Authentication → Sign-in method → Google**. Add `localhost` and `pneumann99.github.io` to **Authentication → Settings → Authorized domains** as needed.
-3. Create a **Cloud Firestore** database. Paste [firestore.rules](./firestore.rules) into **Firestore → Rules** and publish it. The rules deny movie access until a member document exists for the signed-in user.
+3. Create a **Cloud Firestore** database. Paste [firestore.rules](./firestore.rules) into **Firestore → Rules** and publish it. Publish the updated rules before deploying app changes that add new movie fields. The rules deny movie access until a member document exists for the signed-in user.
 4. Copy `.env.example` to `.env.local` and fill in the four values from the Firebase Web app config. Restart the dev server. `.env.local` is Git-ignored. The Firebase Web API key is public by design; access to movie data is enforced by Firestore rules.
-5. Sign in. The app shows your Firebase user ID. In Firestore, create a document at `members/YOUR_USER_ID` (the document can contain a `name` field). The app will unlock automatically. Repeat this for each friend after they sign in and send you their user ID. You can remove access by deleting their member document.
+5. Sign in. The app shows your Firebase user ID. In Firestore, create a document at `members/YOUR_USER_ID` with a `name` string field. The app will unlock automatically. Repeat this for each friend after they sign in and send you their user ID. Member names appear on movies they added; Google names are used when a member document has no name. You can remove access by deleting their member document.
 
 The current version has one shared backlog. Membership is managed in the Firebase console; an in-app invitation flow can be added later.
 
@@ -33,4 +33,6 @@ The secret values stay out of the Git repository and GitHub's repository setting
 
 ## Data and odds
 
-The `movies` collection stores title, optional year, weight (1–10), status, creation time, and the adding user's ID. Every member can add, edit, mark watched, and remove movies. Watched movies leave the wheel but can be returned to the backlog. Each active movie's selection chance is `movie weight / sum of active weights`; the visual slice uses the same fraction.
+The `movies` collection stores title, optional year, required genre, optional streaming service, weight (1–10), status, creation time, and the adding user's ID and display name. The author is filled from the signed-in account and cannot be changed while editing a movie. Every member can add, edit, mark watched, and remove movies. Watched movies leave the wheel but can be returned to the backlog. Each active movie's selection chance is `movie weight / sum of active weights`; the visual slice uses the same fraction.
+
+Movies created before genre and author name were added remain readable and can still be marked watched. They show “Genre not set” until edited. The app looks up existing authors from `members/{userId}` when possible.

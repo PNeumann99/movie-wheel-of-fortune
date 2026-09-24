@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { getWheelSegments, pickWeightedMovie, type WheelSegment } from './wheel'
 import { useMovieStore } from './useMovieStore'
-import type { Movie, MovieDetails } from './types'
+import { genres, streamingServices, type Movie, type MovieDetails, type MovieGenre, type StreamingService } from './types'
 import './App.css'
 
 const colors = ['#f8b85e', '#dd7969', '#9d93dc', '#69b9a7', '#e6a0bd', '#89a9d8', '#d5bd7d', '#8dc5c1']
@@ -67,6 +67,8 @@ function App() {
   const [title, setTitle] = useState('')
   const [year, setYear] = useState('')
   const [weight, setWeight] = useState(1)
+  const [genre, setGenre] = useState<MovieGenre | ''>('')
+  const [streamingService, setStreamingService] = useState<StreamingService | ''>('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,6 +82,18 @@ function App() {
   const watched = useMemo(() => store.movies.filter((movie) => movie.status === 'watched'), [store.movies])
   const segments = useMemo(() => getWheelSegments(backlog), [backlog])
   const chanceById = useMemo(() => new Map(segments.map((segment) => [segment.movie.id, segment.chance])), [segments])
+  const editingMovie = store.movies.find((movie) => movie.id === editingId)
+
+  function authorName(movie: Movie) {
+    return store.memberNames[movie.addedBy]
+      || movie.addedByName
+      || (movie.addedBy === store.user?.uid ? store.user.displayName || store.user.email : null)
+      || (movie.addedBy === 'preview' ? 'Preview user' : `Member ${movie.addedBy.slice(0, 6)}`)
+  }
+
+  const formAuthor = editingMovie
+    ? authorName(editingMovie)
+    : store.preview ? 'Preview user' : store.memberNames[store.user?.uid ?? ''] || store.user?.displayName || store.user?.email || store.user?.uid || 'Member'
 
   useEffect(() => () => { if (spinTimer.current) clearTimeout(spinTimer.current) }, [])
 
@@ -87,6 +101,8 @@ function App() {
     setTitle('')
     setYear('')
     setWeight(1)
+    setGenre('')
+    setStreamingService('')
     setEditingId(null)
   }
 
@@ -98,8 +114,9 @@ function App() {
     if (cleanTitle.length > 120) return setError('Keep the title under 120 characters.')
     if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1888 || parsedYear > 2100)) return setError('Enter a valid release year.')
     if (!Number.isInteger(weight) || weight < 1 || weight > 10) return setError('Choose a weight between 1 and 10.')
+    if (!genre) return setError('Choose a genre.')
 
-    const details: MovieDetails = { title: cleanTitle, year: parsedYear, weight }
+    const details: MovieDetails = { title: cleanTitle, year: parsedYear, weight, genre, streamingService: streamingService || null }
     setBusy(true)
     setError(null)
     try {
@@ -139,6 +156,8 @@ function App() {
     setTitle(movie.title)
     setYear(movie.year?.toString() ?? '')
     setWeight(movie.weight)
+    setGenre(movie.genre ?? '')
+    setStreamingService(movie.streamingService ?? '')
     setEditingId(movie.id)
     document.querySelector('#movie-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
@@ -232,6 +251,11 @@ function App() {
                   <div><label htmlFor="movie-year">YEAR <span>(OPTIONAL)</span></label><input id="movie-year" type="number" min="1888" max="2100" value={year} onChange={(event) => setYear(event.target.value)} placeholder="2022" /></div>
                   <div><label htmlFor="movie-weight">WEIGHT <span>(1–10)</span></label><input id="movie-weight" type="number" min="1" max="10" value={weight} onChange={(event) => setWeight(Number(event.target.value))} /></div>
                 </div>
+                <div className="form-row details-row">
+                  <div><label htmlFor="movie-genre">GENRE <span>(REQUIRED)</span></label><select id="movie-genre" value={genre} onChange={(event) => setGenre(event.target.value as MovieGenre | '')} required><option value="">Choose a genre</option>{genres.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                  <div><label htmlFor="movie-streaming">STREAMING SERVICE <span>(OPTIONAL)</span></label><select id="movie-streaming" value={streamingService} onChange={(event) => setStreamingService(event.target.value as StreamingService | '')}><option value="">Not specified</option>{streamingServices.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+                </div>
+                <div className="form-author"><span>ADDED BY</span><strong>{formAuthor}</strong><small>{editingMovie ? 'Original contributor' : store.preview ? 'Local preview' : 'From your Google account'}</small></div>
                 <div className="form-actions"><button className="add-button" type="submit" disabled={busy}>{editingId ? 'SAVE CHANGES' : '+ ADD TO WATCHLIST'}</button>{editingId && <button className="cancel-button" type="button" onClick={resetForm}>Cancel</button>}</div>
               </form>
               {(error || store.dataError) && <p className="error-message" role="alert">{error || store.dataError}</p>}
@@ -239,7 +263,7 @@ function App() {
                 {backlog.length === 0 ? <div className="empty-list">Your watchlist is empty. Add a movie to give the wheel its first spin.</div> : backlog.map((movie, index) => (
                   <article className="movie-row" key={movie.id}>
                     <span className="movie-index">{String(index + 1).padStart(2, '0')}</span>
-                    <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance</span></div>
+                    <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> {movie.genre ?? 'Genre not set'} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance</span><span className="movie-byline">Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div>
                     <div className="movie-actions"><button title="Edit movie" aria-label={`Edit ${movie.title}`} onClick={() => startEdit(movie)}>Edit</button><button title="Mark watched" aria-label={`Mark ${movie.title} watched`} onClick={() => void changeStatus(movie)}>Watched</button><button title="Remove movie" aria-label={`Remove ${movie.title}`} onClick={() => void removeMovie(movie)}>×</button></div>
                   </article>
                 ))}
@@ -247,11 +271,11 @@ function App() {
             </section>
           </div>
 
-          {watched.length > 0 && <section className="watched-section"><div><span className="eyebrow">THE CREDITS</span><h2>Already watched</h2></div><div className="watched-list">{watched.map((movie) => <div className="watched-row" key={movie.id}><span>{movie.title}{movie.year ? ` (${movie.year})` : ''}</span><div><button onClick={() => void changeStatus(movie)}>Back to list</button><button aria-label={`Remove ${movie.title}`} onClick={() => void removeMovie(movie)}>×</button></div></div>)}</div></section>}
+          {watched.length > 0 && <section className="watched-section"><div><span className="eyebrow">THE CREDITS</span><h2>Already watched</h2></div><div className="watched-list">{watched.map((movie) => <div className="watched-row" key={movie.id}><div className="watched-info"><strong>{movie.title}{movie.year ? ` (${movie.year})` : ''}</strong><span>{movie.genre ?? 'Genre not set'} <span className="separator">·</span> Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div><div><button onClick={() => void changeStatus(movie)}>Back to list</button><button aria-label={`Remove ${movie.title}`} onClick={() => void removeMovie(movie)}>×</button></div></div>)}</div></section>}
         </main>
       )}
 
-      {winner && <div className="result-overlay" role="dialog" aria-modal="true" aria-label="Movie selected" onClick={closeResult}><div className="result-card" onClick={(event) => event.stopPropagation()}><span className="eyebrow">AND TONIGHT’S PICK IS…</span><div className="result-sparkle">✦</div><h2>{winner.title}</h2>{winner.year && <p>{winner.year}</p>}<div className="result-actions"><button className="primary-button" onClick={() => void changeStatus(winner)}>Mark as watched</button><button className="secondary-button" onClick={closeResult}>Keep in the mix</button></div></div></div>}
+      {winner && <div className="result-overlay" role="dialog" aria-modal="true" aria-label="Movie selected" onClick={closeResult}><div className="result-card" onClick={(event) => event.stopPropagation()}><span className="eyebrow">AND TONIGHT’S PICK IS…</span><div className="result-sparkle">✦</div><h2>{winner.title}</h2><p>{winner.year ?? 'Year unknown'} <span className="separator">·</span> {winner.genre ?? 'Genre not set'}</p><p className="result-byline">Added by {authorName(winner)}{winner.streamingService && <> <span className="separator">·</span> Streaming: {winner.streamingService}</>}</p><div className="result-actions"><button className="primary-button" onClick={() => void changeStatus(winner)}>Mark as watched</button><button className="secondary-button" onClick={closeResult}>Keep in the mix</button></div></div></div>}
     </div>
   )
 }
