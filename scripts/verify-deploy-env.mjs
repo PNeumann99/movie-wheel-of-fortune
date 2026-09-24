@@ -2,6 +2,6 @@ const required = ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN', 'VITE_FI
 const missing = required.filter((name) => !process.env[name])
 
 if (missing.length) {
-  console.error(`Missing GitHub Actions variables: ${missing.join(', ')}`)
+  console.error(`Missing GitHub Actions secrets: ${missing.join(', ')}`)
   process.exit(1)
 }
