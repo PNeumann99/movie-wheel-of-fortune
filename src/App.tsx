@@ -4,6 +4,8 @@ import { filterMovies } from './filters'
 import { useMovieStore } from './useMovieStore'
 import { MovieSearch } from './MovieSearch'
 import { RemoveMovieDialog } from './RemoveMovieDialog'
+import { StatsPanel } from './StatsPanel'
+import { getMovieStats } from './stats'
 import { isTmdbConfigured, loadTmdbMovie, searchTmdbMovies } from './tmdbApi'
 import type { TmdbMovieDetails } from './tmdbTypes'
 import { genres, streamingServices, type Movie, type MovieDetails, type MovieGenre, type MovieKind, type StreamingService } from './types'
@@ -111,11 +113,13 @@ function App() {
   const [movieToRemove, setMovieToRemove] = useState<Movie | null>(null)
   const [removingMovie, setRemovingMovie] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
+  const [activeView, setActiveView] = useState<'wheel' | 'stats'>('wheel')
   const removeTrigger = useRef<HTMLButtonElement | null>(null)
   const spinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const backlog = useMemo(() => store.movies.filter((movie) => movie.status === 'backlog'), [store.movies])
   const watched = useMemo(() => store.movies.filter((movie) => movie.status === 'watched'), [store.movies])
+  const stats = useMemo(() => getMovieStats(store.movies), [store.movies])
   const genreChoices = useMemo(() => genres.filter((option) => backlog.some((movie) => movie.genre === option)), [backlog])
   const activeExcludedGenres = useMemo(() => excludedGenres.filter((option) => genreChoices.includes(option)), [excludedGenres, genreChoices])
   const lowerYear = minYear === '' ? null : Number(minYear)
@@ -344,12 +348,17 @@ function App() {
           <section className="intro">
             <div>
               <div className="eyebrow"><span className="eyebrow-line" /> MOVIE NIGHT, SORTED</div>
-              <h1>Pick a movie.<br /><em>Leave it to chance.</em></h1>
-              <p>A shared list of movies and series you want to see. Give your favorites a little extra luck, then spin to decide what’s on tonight.</p>
+              {activeView === 'wheel' ? <><h1>Pick a movie.<br /><em>Leave it to chance.</em></h1><p>A shared list of movies and series you want to see. Give your favorites a little extra luck, then spin to decide what’s on tonight.</p></> : <><h1>All those nights.<br /><em>In numbers.</em></h1><p>A little look back at what you’ve watched together, and what’s still waiting for its turn.</p></>}
             </div>
-            <div className="intro-count"><strong>{eligible.length}</strong><span>PICKS IN THE MIX</span></div>
+            <div className="intro-count"><strong>{activeView === 'wheel' ? eligible.length : stats.watchedCount}</strong><span>{activeView === 'wheel' ? 'PICKS IN THE MIX' : 'TITLES WATCHED'}</span></div>
           </section>
 
+          <nav className="view-tabs" aria-label="Main views">
+            <button type="button" aria-current={activeView === 'wheel' ? 'page' : undefined} onClick={() => setActiveView('wheel')}>The wheel</button>
+            <button type="button" aria-current={activeView === 'stats' ? 'page' : undefined} onClick={() => setActiveView('stats')} disabled={spinning}>Statistics</button>
+          </nav>
+
+          {activeView === 'wheel' ? <>
           <section className="filter-card" aria-label="Tonight’s wheel filters">
             <div className="filter-heading">
               <div><span className="eyebrow">SET THE MOOD</span><h2>Tonight’s filters</h2><p>Choose what can land on the wheel. Every entry stays in your watchlist.</p></div>
@@ -425,6 +434,7 @@ function App() {
           </div>
 
           {watched.length > 0 && <section className="watched-section"><div><span className="eyebrow">THE CREDITS</span><h2 tabIndex={-1}>Already watched</h2></div><div className="watched-list">{watched.map((movie) => <div className="watched-row" key={movie.id}><div className="watched-info"><strong>{movie.title}{movie.year ? ` (${movie.year})` : ''}</strong><span>{movie.genre ?? 'Genre not set'} <span className="separator">·</span> {lengthLabel(movie)} <span className="separator">·</span> Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div><div><button onClick={() => void changeStatus(movie)}>Back to list</button><button aria-label={`Remove ${movie.title}`} onClick={(event) => askToRemove(movie, event.currentTarget)}>×</button></div></div>)}</div></section>}
+          </> : <StatsPanel stats={stats} error={store.dataError} />}
           {isTmdbConfigured && <footer className="data-credits"><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}tmdb-logo.svg`} alt="TMDB" /></a><div><strong>Data credits</strong><p>This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is powered by <a href="https://www.justwatch.com" target="_blank" rel="noreferrer">JustWatch</a> and may change.</p></div></footer>}
         </main>
       )}
