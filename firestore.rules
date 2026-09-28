@@ -7,7 +7,7 @@ service cloud.firestore {
     }
 
     function validMovie(data) {
-      return data.keys().hasOnly(['title', 'kind', 'year', 'runtimeMinutes', 'weight', 'status', 'createdAt', 'addedBy', 'addedByName', 'genre', 'streamingService'])
+      return data.keys().hasOnly(['title', 'kind', 'year', 'runtimeMinutes', 'weight', 'status', 'createdAt', 'addedBy', 'addedByName', 'genre', 'streamingService', 'tmdbId', 'posterPath', 'overview'])
         && data.keys().hasAll(['title', 'year', 'weight', 'status', 'createdAt', 'addedBy'])
         && data.title is string && data.title.size() > 0 && data.title.size() <= 120
         && data.get('kind', 'movie') in ['movie', 'series']
@@ -17,6 +17,9 @@ service cloud.firestore {
         && data.weight is int && data.weight >= 1 && data.weight <= 10
         && data.status in ['backlog', 'watched']
         && data.createdAt is int
+        && (data.get('tmdbId', null) == null || (data.tmdbId is int && data.tmdbId > 0 && data.tmdbId <= 9999999999))
+        && (data.get('posterPath', null) == null || (data.posterPath is string && data.posterPath.size() <= 200 && data.posterPath.matches('/[A-Za-z0-9_-]+[.](jpg|jpeg|png|webp)')))
+        && (data.get('overview', null) == null || (data.overview is string && data.overview.size() <= 5000))
         && data.addedBy is string
         && (data.get('addedByName', null) == null || (data.addedByName is string && data.addedByName.size() > 0 && data.addedByName.size() <= 100))
         && (data.get('genre', null) == null || data.genre in [

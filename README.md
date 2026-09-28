@@ -53,6 +53,22 @@ The [TMDB logo](./public/tmdb-logo.svg) is the approved TMDB artwork sourced thr
 
 ## Data and odds
 
+### Backlog and saved TMDB details
+
+The **Backlog** tab holds the full watchlist and the add/edit form. Cards show posters, expandable descriptions, movie length, genre, release year, streaming service, weight, contributor, and date added. The wheel tab shows only tonight's eligible picks and their odds. Already watched titles are below the backlog and can be returned to the list.
+
+When you select a TMDB result, the app saves its movie ID, poster path, and description alongside the other details in Firestore. Opening Backlog reads those saved values without requesting movie details from the Worker. Poster images load lazily from TMDB's image CDN; image files are not stored in Firebase. The saved details are a snapshot and do not automatically track later TMDB changes.
+
+Existing entries have no saved TMDB ID or artwork. Use **Edit**, search for the matching movie, select **Use movie**, and save to attach those details to the existing entry. Its original contributor, date added, and weight are preserved. Manual movies and series can have a typed description and display a placeholder when no poster is available.
+
+Before deploying the backlog update:
+
+1. Publish the updated [firestore.rules](./firestore.rules) in Firebase Console → Firestore → Rules. The rules allow and validate the three optional metadata fields while preserving access and attribution checks. Older app versions remain compatible.
+2. Run `npm run worker:deploy` to return the full description and poster path with movie details. Existing Worker secrets are preserved. The frontend can fall back to the shorter search-result description until the Worker is updated.
+3. Merge the frontend branch into `main` to deploy through GitHub Pages.
+
+### Watchlist data
+
 The `movies` collection stores title, optional year, required genre, optional streaming service, weight (1–10), status, creation time, and the adding user's ID and display name. The author is filled from the signed-in account and cannot be changed while editing a movie. Every member can add, edit, mark watched, and remove movies. Watched movies leave the wheel but can be returned to the backlog. Each active movie's selection chance is `movie weight / sum of active weights`; the visual slice uses the same fraction.
 
 Tonight's filters let you skip genres, set an inclusive release-year range, and choose a contributor. They affect only the wheel and its odds; the full backlog remains visible and editable. Movies without a year are excluded while a year limit is active. Filters reset when the page reloads and do not change stored movies.

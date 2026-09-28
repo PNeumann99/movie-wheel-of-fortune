@@ -77,3 +77,17 @@ test('members can read each other’s names while nonmembers cannot read movies'
   await assertFails(getDoc(doc(outsider, 'members/bob')))
   await assertFails(getDoc(doc(outsider, 'movies/legacy')))
 })
+
+test('TMDB snapshots are optional, bounded, and cannot change attribution', async () => {
+  const ref = doc(alice, 'movies/tmdb')
+  await assertSucceeds(setDoc(ref, { ...movie, tmdbId: 329865, posterPath: '/arrival.jpg', overview: 'First contact.' }))
+  await assertSucceeds(updateDoc(ref, { title: 'Arrival (edited)', weight: 4 }))
+  await assertSucceeds(updateDoc(doc(alice, 'movies/legacy'), { tmdbId: 123, posterPath: '/legacy.png', overview: 'Added later.' }))
+  await assertFails(updateDoc(ref, { posterPath: 'https://example.com/poster.jpg' }))
+  await assertFails(updateDoc(ref, { posterPath: '/../../poster.jpg' }))
+  await assertFails(updateDoc(ref, { tmdbId: -1 }))
+  await assertFails(updateDoc(ref, { overview: 'x'.repeat(5001) }))
+  await assertFails(updateDoc(ref, { createdAt: 123 }))
+  await assertFails(updateDoc(ref, { addedBy: 'bob' }))
+  await assertSucceeds(updateDoc(ref, { tmdbId: null, posterPath: null, overview: '' }))
+})

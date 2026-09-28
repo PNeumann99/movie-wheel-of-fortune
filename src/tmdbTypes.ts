@@ -9,6 +9,9 @@ export interface TmdbSearchResult {
 }
 
 export interface TmdbMovieDetails {
+  tmdbId: number | null
+  posterPath: string | null
+  overview: string
   title: string
   year: number | null
   runtimeMinutes: number | null
