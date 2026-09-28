@@ -26,6 +26,9 @@ export interface Movie {
   streamingService?: StreamingService | null
   kind?: MovieKind // Older entries are movies.
   runtimeMinutes?: number | null // Older entries may not have a runtime.
+  tmdbId?: number | null
+  posterPath?: string | null // TMDB image path; the image itself stays on TMDB.
+  overview?: string
 }
 
 export type MovieDetails = Pick<Movie, 'title' | 'year' | 'weight'> & {
@@ -33,4 +36,7 @@ export type MovieDetails = Pick<Movie, 'title' | 'year' | 'weight'> & {
   runtimeMinutes: number | null
   genre: MovieGenre
   streamingService: StreamingService | null
+  tmdbId?: number | null
+  posterPath?: string | null
+  overview?: string
 }

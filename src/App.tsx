@@ -5,6 +5,9 @@ import { useMovieStore } from './useMovieStore'
 import { MovieSearch } from './MovieSearch'
 import { RemoveMovieDialog } from './RemoveMovieDialog'
 import { StatsPanel } from './StatsPanel'
+import { BacklogPanel } from './BacklogPanel'
+import { MoviePoster } from './MoviePoster'
+import { lengthLabel } from './moviePresentation'
 import { getMovieStats } from './stats'
 import { isTmdbConfigured, loadTmdbMovie, searchTmdbMovies } from './tmdbApi'
 import type { TmdbMovieDetails } from './tmdbTypes'
@@ -23,14 +26,6 @@ function loadSpinCooldowns(): SpinCooldowns {
   } catch {
     return {}
   }
-}
-
-function lengthLabel(movie: Movie): string {
-  if (movie.kind === 'series') return 'Series'
-  if (!movie.runtimeMinutes) return 'Length unknown'
-  const hours = Math.floor(movie.runtimeMinutes / 60)
-  const minutes = movie.runtimeMinutes % 60
-  return `${hours ? `${hours}h` : ''}${hours && minutes ? ' ' : ''}${minutes ? `${minutes}m` : ''}`
 }
 
 function point(angle: number, radius: number) {
@@ -113,7 +108,11 @@ function App() {
   const [movieToRemove, setMovieToRemove] = useState<Movie | null>(null)
   const [removingMovie, setRemovingMovie] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
-  const [activeView, setActiveView] = useState<'wheel' | 'stats'>('wheel')
+  const [activeView, setActiveView] = useState<'wheel' | 'backlog' | 'stats'>('wheel')
+  const [showEditor, setShowEditor] = useState(false)
+  const [tmdbId, setTmdbId] = useState<number | null>(null)
+  const [posterPath, setPosterPath] = useState<string | null>(null)
+  const [overview, setOverview] = useState('')
   const removeTrigger = useRef<HTMLButtonElement | null>(null)
   const spinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -172,10 +171,12 @@ function App() {
     setKind('movie')
     setYear(movie.year?.toString() ?? '')
     setRuntimeMinutes(movie.runtimeMinutes?.toString() ?? '')
-    setWeight(1)
+    if (!editingId) setWeight(1)
     setGenre(movie.genre)
     setStreamingService(movie.streamingService ?? '')
-    setEditingId(null)
+    setTmdbId(movie.tmdbId)
+    setPosterPath(movie.posterPath)
+    setOverview(movie.overview)
     setError(null)
     document.querySelector('#movie-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
@@ -184,6 +185,13 @@ function App() {
   useEffect(() => {
     try { sessionStorage.setItem(spinCooldownKey, JSON.stringify(spinCooldowns)) } catch { /* Storage may be unavailable. */ }
   }, [spinCooldowns])
+
+  useEffect(() => {
+    if (activeView === 'backlog' && showEditor) {
+      document.querySelector<HTMLInputElement>('#movie-title')?.focus({ preventScroll: true })
+      document.querySelector('#movie-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [activeView, showEditor, editingId])
 
   function resetForm() {
     setTitle('')
@@ -194,6 +202,16 @@ function App() {
     setGenre('')
     setStreamingService('')
     setEditingId(null)
+    setTmdbId(null)
+    setPosterPath(null)
+    setOverview('')
+    setError(null)
+  }
+
+  function closeEditor() {
+    resetForm()
+    setShowEditor(false)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('#backlog-heading')?.focus())
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -208,13 +226,13 @@ function App() {
     if (!Number.isInteger(weight) || weight < 1 || weight > 10) return setError('Choose a weight between 1 and 10.')
     if (!genre) return setError('Choose a genre.')
 
-    const details: MovieDetails = { title: cleanTitle, kind, year: parsedYear, runtimeMinutes: parsedRuntime, weight, genre, streamingService: streamingService || null }
+    const details: MovieDetails = { title: cleanTitle, kind, year: parsedYear, runtimeMinutes: parsedRuntime, weight, genre, streamingService: streamingService || null, tmdbId, posterPath, overview: overview.trim() }
     setBusy(true)
     setError(null)
     try {
       if (editingId) await store.updateMovie(editingId, details)
       else await store.addMovie(details)
-      resetForm()
+      closeEditor()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save the movie.')
     } finally {
@@ -240,12 +258,12 @@ function App() {
 
   function closeRemoveDialog() {
     const trigger = removeTrigger.current
-    const heading = movieToRemove?.status === 'watched' ? '.watched-section h2' : '.list-heading h2'
+    const heading = movieToRemove?.status === 'watched' ? '.watched-section h2' : '.backlog-heading h2'
     setMovieToRemove(null)
     setRemoveError(null)
     requestAnimationFrame(() => {
       if (trigger?.isConnected) trigger.focus()
-      else (document.querySelector<HTMLElement>(heading) ?? document.querySelector<HTMLElement>('.list-heading h2'))?.focus()
+      else (document.querySelector<HTMLElement>(heading) ?? document.querySelector<HTMLElement>('.backlog-heading h2'))?.focus()
     })
   }
 
@@ -256,7 +274,7 @@ function App() {
     setRemoveError(null)
     try {
       await store.removeMovie(movie.id)
-      if (editingId === movie.id) resetForm()
+      if (editingId === movie.id) { resetForm(); setShowEditor(false) }
       if (winner?.id === movie.id) closeResult()
       closeRemoveDialog()
     } catch (cause) {
@@ -275,7 +293,12 @@ function App() {
     setGenre(movie.genre ?? '')
     setStreamingService(movie.streamingService ?? '')
     setEditingId(movie.id)
-    document.querySelector('#movie-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setTmdbId(movie.tmdbId ?? null)
+    setPosterPath(movie.posterPath ?? null)
+    setOverview(movie.overview ?? '')
+    setError(null)
+    setActiveView('backlog')
+    setShowEditor(true)
   }
 
   function closeResult() {
@@ -348,15 +371,18 @@ function App() {
           <section className="intro">
             <div>
               <div className="eyebrow"><span className="eyebrow-line" /> MOVIE NIGHT, SORTED</div>
-              {activeView === 'wheel' ? <><h1>Pick a movie.<br /><em>Leave it to chance.</em></h1><p>A shared list of movies and series you want to see. Give your favorites a little extra luck, then spin to decide what’s on tonight.</p></> : <><h1>All those nights.<br /><em>In numbers.</em></h1><p>A little look back at what you’ve watched together, and what’s still waiting for its turn.</p></>}
+              {activeView === 'wheel' ? <><h1>Pick a movie.<br /><em>Leave it to chance.</em></h1><p>A shared list of movies and series you want to see. Give your favorites a little extra luck, then spin to decide what’s on tonight.</p></> : activeView === 'backlog' ? <><h1>Good things.<br /><em>Worth the wait.</em></h1><p>All the movies and series you’ve saved for later. Browse the stories, add a new discovery, and make room for your next favorite.</p></> : <><h1>All those nights.<br /><em>In numbers.</em></h1><p>A little look back at what you’ve watched together, and what’s still waiting for its turn.</p></>}
             </div>
-            <div className="intro-count"><strong>{activeView === 'wheel' ? eligible.length : stats.watchedCount}</strong><span>{activeView === 'wheel' ? 'PICKS IN THE MIX' : 'TITLES WATCHED'}</span></div>
+            <div className="intro-count"><strong>{activeView === 'wheel' ? eligible.length : activeView === 'backlog' ? backlog.length : stats.watchedCount}</strong><span>{activeView === 'wheel' ? 'PICKS IN THE MIX' : activeView === 'backlog' ? 'TITLES WAITING' : 'TITLES WATCHED'}</span></div>
           </section>
 
           <nav className="view-tabs" aria-label="Main views">
             <button type="button" aria-current={activeView === 'wheel' ? 'page' : undefined} onClick={() => setActiveView('wheel')}>The wheel</button>
+            <button type="button" aria-current={activeView === 'backlog' ? 'page' : undefined} onClick={() => setActiveView('backlog')} disabled={spinning}>Backlog</button>
             <button type="button" aria-current={activeView === 'stats' ? 'page' : undefined} onClick={() => setActiveView('stats')} disabled={spinning}>Statistics</button>
           </nav>
+
+          {(error || store.dataError) && activeView !== 'stats' && (!showEditor || activeView !== 'backlog') && <p className="error-message" role="alert">{error || store.dataError}</p>}
 
           {activeView === 'wheel' ? <>
           <section className="filter-card" aria-label="Tonight’s wheel filters">
@@ -394,18 +420,34 @@ function App() {
               </div>
             </section>
 
-            <section className="list-card">
-              <div className="card-topline"><span>02 / THE BACKLOG</span><span>{backlog.length} PICKS</span></div>
-              <div className="list-heading"><h2 tabIndex={-1}>The watchlist</h2><p>Every great movie night starts somewhere.</p></div>
+            <section className="list-card tonight-card" aria-labelledby="tonight-heading">
+              <div className="card-topline"><span>02 / TONIGHT’S MIX</span><span>{eligible.length} PICKS</span></div>
+              <div className="list-heading"><h2 id="tonight-heading">In the running</h2><p>These titles match tonight’s filters.</p></div>
+              <div className="movies-list">
+                {eligible.length === 0 ? <div className="empty-list">{backlog.length ? 'Adjust your filters to bring titles back into the mix.' : 'Add a movie or series in Backlog to get started.'}</div> : eligible.map((movie) => (
+                  <article className="tonight-row" key={movie.id}>
+                    <div><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} · {lengthLabel(movie)}</span>{spinCooldowns[movie.id] > 0 && <span className="cooldown-note">Not tonight · {spinCooldowns[movie.id]} {spinCooldowns[movie.id] === 1 ? 'spin' : 'spins'} left at {COOLDOWN_WEIGHT_MULTIPLIER * 100}% weight</span>}</div>
+                    <span className="tonight-chance">{((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}%</span>
+                  </article>
+                ))}
+              </div>
+              <button type="button" className="secondary-button manage-backlog" disabled={spinning} onClick={() => setActiveView('backlog')}>Browse & manage backlog ↗</button>
+            </section>
+          </div>
+          </> : activeView === 'backlog' ? <>
+          <BacklogPanel disabled={busy} movies={backlog} authorName={authorName} onAdd={() => { resetForm(); setShowEditor(true); requestAnimationFrame(() => document.querySelector('#movie-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }} onEdit={startEdit} onWatched={(movie) => void changeStatus(movie)} onRemove={askToRemove}>
+            {showEditor && <section id="movie-editor" className="movie-editor" aria-labelledby="editor-heading">
+              <div className="list-heading"><h2 id="editor-heading">{editingId ? 'Edit this title' : 'Add to the backlog'}</h2><p>{editingId ? 'Update details or choose a TMDB result to attach its poster and description.' : 'Find a movie on TMDB or enter the details yourself.'}</p></div>
               <div className="kind-picker" role="group" aria-label="Watchlist entry type">
                 <span>ADD A</span>
-                <button type="button" aria-pressed={kind === 'movie'} onClick={() => setKind('movie')}>Movie</button>
-                <button type="button" aria-pressed={kind === 'series'} onClick={() => { setKind('series'); setRuntimeMinutes('') }}>Series</button>
+                <button type="button" disabled={busy} aria-pressed={kind === 'movie'} onClick={() => setKind('movie')}>Movie</button>
+                <button type="button" disabled={busy} aria-pressed={kind === 'series'} onClick={() => { setKind('series'); setRuntimeMinutes(''); setTmdbId(null); setPosterPath(null); if (tmdbId) setOverview('') }}>Series</button>
               </div>
-              {kind === 'movie' && isTmdbConfigured && <MovieSearch searchMovies={searchTmdbMovies} loadMovie={loadTmdbMovie} onSelect={useTmdbMovie} />}
+              {kind === 'movie' && isTmdbConfigured && <MovieSearch disabled={busy} key={editingId ?? 'new'} searchMovies={searchTmdbMovies} loadMovie={loadTmdbMovie} onSelect={useTmdbMovie} />}
               {kind === 'movie' && !store.preview && !isTmdbConfigured && <p className="movie-search-unavailable">TMDB search is not configured yet. You can still add movies manually.</p>}
               {kind === 'series' && <p className="series-hint">Add series manually. TMDB search is available for movies.</p>}
               <form id="movie-form" className="movie-form" onSubmit={(event) => void handleSubmit(event)}>
+                <fieldset className="editor-fields" disabled={busy}>
                 <label htmlFor="movie-title">{kind === 'series' ? 'SERIES TITLE' : 'MOVIE TITLE'}</label>
                 <input id="movie-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={kind === 'series' ? 'e.g. The Bear' : 'e.g. Everything Everywhere All at Once'} maxLength={120} />
                 <div className="form-row">
@@ -417,25 +459,18 @@ function App() {
                   <div><label htmlFor="movie-genre">GENRE <span>(REQUIRED)</span></label><select id="movie-genre" value={genre} onChange={(event) => setGenre(event.target.value as MovieGenre | '')} required><option value="">Choose a genre</option>{genres.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                   <div><label htmlFor="movie-streaming">STREAMING SERVICE <span>(OPTIONAL)</span></label><select id="movie-streaming" value={streamingService} onChange={(event) => setStreamingService(event.target.value as StreamingService | '')}><option value="">Not specified</option>{streamingServices.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
                 </div>
+                <div className="overview-field"><label htmlFor="movie-overview">DESCRIPTION <span>(OPTIONAL)</span></label><textarea id="movie-overview" value={overview} onChange={(event) => setOverview(event.target.value)} maxLength={5000} rows={4} placeholder="What’s it about?" /></div>
+                {tmdbId && <div className="imported-artwork"><MoviePoster path={posterPath} /><div><strong>TMDB details attached</strong><p>The poster and description will be saved with this entry.</p><button type="button" className="text-button" onClick={() => { setTmdbId(null); setPosterPath(null) }}>Unlink TMDB artwork</button></div></div>}
                 <div className="form-author"><span>ADDED BY</span><strong>{formAuthor}</strong><small>{editingMovie ? 'Original contributor' : store.preview ? 'Local preview' : 'From your Google account'}</small></div>
-                <div className="form-actions"><button className="add-button" type="submit" disabled={busy}>{editingId ? 'SAVE CHANGES' : '+ ADD TO WATCHLIST'}</button>{editingId && <button className="cancel-button" type="button" onClick={resetForm}>Cancel</button>}</div>
+                <div className="form-actions"><button className="add-button" type="submit" disabled={busy}>{editingId ? 'SAVE CHANGES' : '+ ADD TO WATCHLIST'}</button><button className="cancel-button" type="button" disabled={busy} onClick={closeEditor}>Cancel</button></div>
+                </fieldset>
               </form>
               {(error || store.dataError) && <p className="error-message" role="alert">{error || store.dataError}</p>}
-              <div className="movies-list">
-                {backlog.length === 0 ? <div className="empty-list">Your watchlist is empty. Add a movie or series to give the wheel its first spin.</div> : backlog.map((movie, index) => (
-                  <article className="movie-row" key={movie.id}>
-                    <span className="movie-index">{String(index + 1).padStart(2, '0')}</span>
-                    <div className="movie-info"><strong>{movie.title}</strong><span>{movie.year ?? 'Year unknown'} <span className="separator">·</span> {movie.genre ?? 'Genre not set'} <span className="separator">·</span> {lengthLabel(movie)} <span className="separator">·</span> Weight {movie.weight} <span className="separator">·</span> {chanceById.has(movie.id) ? `${((chanceById.get(movie.id) ?? 0) * 100).toFixed(1)}% chance` : 'Out tonight'}</span><span className="movie-byline">Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span>{spinCooldowns[movie.id] > 0 && <span className="cooldown-note">Not tonight · {spinCooldowns[movie.id]} {spinCooldowns[movie.id] === 1 ? 'spin' : 'spins'} left at {COOLDOWN_WEIGHT_MULTIPLIER * 100}% weight</span>}</div>
-                    <div className="movie-actions"><button title="Edit entry" aria-label={`Edit ${movie.title}`} onClick={() => startEdit(movie)}>Edit</button><button title="Mark watched" aria-label={`Mark ${movie.title} watched`} onClick={() => void changeStatus(movie)}>Watched</button><button title="Remove entry" aria-label={`Remove ${movie.title}`} onClick={(event) => askToRemove(movie, event.currentTarget)}>×</button></div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-
+            </section>}
+          </BacklogPanel>
           {watched.length > 0 && <section className="watched-section"><div><span className="eyebrow">THE CREDITS</span><h2 tabIndex={-1}>Already watched</h2></div><div className="watched-list">{watched.map((movie) => <div className="watched-row" key={movie.id}><div className="watched-info"><strong>{movie.title}{movie.year ? ` (${movie.year})` : ''}</strong><span>{movie.genre ?? 'Genre not set'} <span className="separator">·</span> {lengthLabel(movie)} <span className="separator">·</span> Added by {authorName(movie)}{movie.streamingService && <> <span className="separator">·</span> Streaming: {movie.streamingService}</>}</span></div><div><button onClick={() => void changeStatus(movie)}>Back to list</button><button aria-label={`Remove ${movie.title}`} onClick={(event) => askToRemove(movie, event.currentTarget)}>×</button></div></div>)}</div></section>}
           </> : <StatsPanel stats={stats} error={store.dataError} />}
-          {isTmdbConfigured && <footer className="data-credits"><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}tmdb-logo.svg`} alt="TMDB" /></a><div><strong>Data credits</strong><p>This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is powered by <a href="https://www.justwatch.com" target="_blank" rel="noreferrer">JustWatch</a> and may change.</p></div></footer>}
+          {(isTmdbConfigured || store.movies.some((movie) => movie.tmdbId || movie.posterPath)) && <footer className="data-credits"><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}tmdb-logo.svg`} alt="TMDB" /></a><div><strong>Data credits</strong><p>This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming availability data is powered by <a href="https://www.justwatch.com" target="_blank" rel="noreferrer">JustWatch</a> and may change.</p></div></footer>}
         </main>
       )}
 

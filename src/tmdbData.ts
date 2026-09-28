@@ -13,7 +13,7 @@ function releaseYear(value: unknown): number | null {
 }
 
 function posterPath(value: unknown): string | null {
-  return typeof value === 'string' && /^\/[\w-]+\.(?:jpg|jpeg|png|webp)$/.test(value) ? value : null
+  return typeof value === 'string' && value.length <= 200 && /^\/[\w-]+\.(?:jpg|jpeg|png|webp)$/.test(value) ? value : null
 }
 
 function movieRuntime(value: unknown): number | null {
@@ -63,6 +63,9 @@ export function tmdbMovieDetails(detailsResponse: unknown, providersResponse: un
     throw new Error('TMDB did not return a movie title.')
   }
   return {
+    tmdbId: Number.isInteger(details.id) && (details.id as number) > 0 && (details.id as number) <= 9999999999 ? details.id as number : null,
+    posterPath: posterPath(details.poster_path),
+    overview: typeof details.overview === 'string' ? details.overview.trim().slice(0, 5000) : '',
     title: details.title.trim().slice(0, 120),
     year: releaseYear(details.release_date),
     runtimeMinutes: movieRuntime(details.runtime),
