@@ -94,6 +94,7 @@ function App() {
   const [genre, setGenre] = useState<MovieGenre | ''>('')
   const [streamingService, setStreamingService] = useState<StreamingService | ''>('')
   const [excludedGenres, setExcludedGenres] = useState<MovieGenre[]>([])
+  const [excludeSeries, setExcludeSeries] = useState(false)
   const [minYear, setMinYear] = useState('')
   const [maxYear, setMaxYear] = useState('')
   const [addedByFilter, setAddedByFilter] = useState('')
@@ -128,14 +129,15 @@ function App() {
     || (lowerYear !== null && upperYear !== null && lowerYear > upperYear)
   const eligible = useMemo(() => invalidYearRange ? [] : filterMovies(backlog, {
     excludedGenres: activeExcludedGenres,
+    excludeSeries,
     minYear: lowerYear,
     maxYear: upperYear,
     addedBy: addedByFilter || null,
-  }), [backlog, activeExcludedGenres, lowerYear, upperYear, addedByFilter, invalidYearRange])
+  }), [backlog, activeExcludedGenres, excludeSeries, lowerYear, upperYear, addedByFilter, invalidYearRange])
   const weightedEligible = useMemo(() => withSpinCooldowns(eligible, spinCooldowns), [eligible, spinCooldowns])
   const segments = useMemo(() => getWheelSegments(weightedEligible), [weightedEligible])
   const chanceById = useMemo(() => new Map(segments.map((segment) => [segment.movie.id, segment.chance])), [segments])
-  const hasFilters = activeExcludedGenres.length > 0 || minYear !== '' || maxYear !== '' || addedByFilter !== ''
+  const hasFilters = activeExcludedGenres.length > 0 || excludeSeries || minYear !== '' || maxYear !== '' || addedByFilter !== ''
   const contributorIds = [...new Set([...backlog.map((movie) => movie.addedBy), ...(addedByFilter ? [addedByFilter] : [])])]
   const editingMovie = store.movies.find((movie) => movie.id === editingId)
 
@@ -161,6 +163,7 @@ function App() {
 
   function clearFilters() {
     setExcludedGenres([])
+    setExcludeSeries(false)
     setMinYear('')
     setMaxYear('')
     setAddedByFilter('')
@@ -391,6 +394,7 @@ function App() {
               <button type="button" className="clear-filters" onClick={clearFilters} disabled={!hasFilters || spinning}>Clear filters</button>
             </div>
             <div className="filter-controls">
+              <div className="filter-picks">
               <fieldset className="genre-filter" disabled={spinning}>
                 <legend>SKIP GENRES</legend>
                 <div className="genre-options">
@@ -402,6 +406,14 @@ function App() {
                   ))}
                 </div>
               </fieldset>
+              <fieldset className="type-filter" disabled={spinning}>
+                <legend>TYPE</legend>
+                <label className={`genre-option ${excludeSeries ? 'is-excluded' : ''}`}>
+                  <input type="checkbox" aria-label="Skip series" checked={excludeSeries} onChange={(event) => setExcludeSeries(event.target.checked)} />
+                  <span>Skip series</span>
+                </label>
+              </fieldset>
+              </div>
               <div className="filter-side">
                 <div className="year-filter"><label>RELEASE YEAR</label><div className="year-inputs"><input aria-label="From year" type="number" min="1888" max="2100" step="1" placeholder="From" value={minYear} onChange={(event) => setMinYear(event.target.value)} disabled={spinning} /><span>to</span><input aria-label="To year" type="number" min="1888" max="2100" step="1" placeholder="To" value={maxYear} onChange={(event) => setMaxYear(event.target.value)} disabled={spinning} /></div></div>
                 <div className="contributor-filter"><label htmlFor="filter-added-by">ADDED BY</label><select id="filter-added-by" value={addedByFilter} onChange={(event) => setAddedByFilter(event.target.value)} disabled={spinning}><option value="">Anyone</option>{contributorIds.map((id) => <option key={id} value={id}>{contributorName(id)}</option>)}</select></div>

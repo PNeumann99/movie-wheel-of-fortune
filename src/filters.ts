@@ -2,6 +2,7 @@ import type { Movie, MovieGenre } from './types'
 
 export interface MovieFilters {
   excludedGenres: readonly MovieGenre[]
+  excludeSeries: boolean
   minYear: number | null
   maxYear: number | null
   addedBy: string | null
@@ -11,6 +12,7 @@ export function filterMovies(movies: readonly Movie[], filters: MovieFilters): M
   const excluded = new Set(filters.excludedGenres)
   return movies.filter((movie) =>
     movie.status === 'backlog'
+    && (!filters.excludeSeries || movie.kind !== 'series')
     && (!movie.genre || !excluded.has(movie.genre))
     && (filters.minYear === null || (movie.year !== null && movie.year >= filters.minYear))
     && (filters.maxYear === null || (movie.year !== null && movie.year <= filters.maxYear))
