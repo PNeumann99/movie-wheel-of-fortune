@@ -71,7 +71,7 @@ Before deploying the backlog update:
 
 The `movies` collection stores title, optional year, required genre, optional streaming service, weight (1–10), status, creation time, and the adding user's ID and display name. The author is filled from the signed-in account and cannot be changed while editing a movie. Every member can add, edit, mark watched, and remove movies. Watched movies leave the wheel but can be returned to the backlog. Each active movie's selection chance is `movie weight / sum of active weights`; the visual slice uses the same fraction.
 
-Tonight's filters let you skip genres, set an inclusive release-year range, and choose a contributor. They affect only the wheel and its odds; the full backlog remains visible and editable. Movies without a year are excluded while a year limit is active. Filters reset when the page reloads and do not change stored movies.
+Tonight's filters let you skip genres or series, set an inclusive release-year range, and choose a contributor. They affect only the wheel and its odds; the full backlog remains visible and editable. Older entries without a Movie/Series value count as movies. Movies without a year are excluded while a year limit is active. Filters reset when the page reloads and do not change stored movies.
 
 The **Statistics** view summarizes the full shared list, regardless of tonight's filters. Watched count and genre include movies and series. Movie hours include only watched movies with a known length; average release year includes only watched titles with a year. The oldest backlog survivor uses the date an entry was added. Older entries with missing metadata remain in the list but do not distort these measures.
 
