@@ -98,6 +98,7 @@ function App() {
   const [minYear, setMinYear] = useState('')
   const [maxYear, setMaxYear] = useState('')
   const [addedByFilter, setAddedByFilter] = useState('')
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -138,6 +139,7 @@ function App() {
   const segments = useMemo(() => getWheelSegments(weightedEligible), [weightedEligible])
   const chanceById = useMemo(() => new Map(segments.map((segment) => [segment.movie.id, segment.chance])), [segments])
   const hasFilters = activeExcludedGenres.length > 0 || excludeSeries || minYear !== '' || maxYear !== '' || addedByFilter !== ''
+  const advancedFilterCount = Number(minYear !== '' || maxYear !== '') + Number(addedByFilter !== '') + Number(excludeSeries)
   const contributorIds = [...new Set([...backlog.map((movie) => movie.addedBy), ...(addedByFilter ? [addedByFilter] : [])])]
   const editingMovie = store.movies.find((movie) => movie.id === editingId)
 
@@ -167,6 +169,7 @@ function App() {
     setMinYear('')
     setMaxYear('')
     setAddedByFilter('')
+    setAdvancedFiltersOpen(false)
   }
 
   function useTmdbMovie(movie: TmdbMovieDetails) {
@@ -405,13 +408,18 @@ function App() {
                   ))}
                 </div>
               </fieldset>
-              <div className="filter-side">
+              <button type="button" className="advanced-filter-button" aria-expanded={advancedFiltersOpen} aria-controls="advanced-wheel-filters" onClick={() => setAdvancedFiltersOpen((open) => !open)}>
+                <span>{advancedFiltersOpen ? 'Hide more filters' : 'More filters'}</span>
+                {advancedFilterCount > 0 && <span className="advanced-filter-count">{advancedFilterCount} active</span>}
+                <span className="advanced-filter-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div id="advanced-wheel-filters" className="filter-side" hidden={!advancedFiltersOpen}>
                 <div className="year-filter"><label>RELEASE YEAR</label><div className="year-inputs"><input aria-label="From year" type="number" min="1888" max="2100" step="1" placeholder="From" value={minYear} onChange={(event) => setMinYear(event.target.value)} disabled={spinning} /><span>to</span><input aria-label="To year" type="number" min="1888" max="2100" step="1" placeholder="To" value={maxYear} onChange={(event) => setMaxYear(event.target.value)} disabled={spinning} /></div></div>
                 <div className="contributor-filter"><label htmlFor="filter-added-by">ADDED BY</label><select id="filter-added-by" value={addedByFilter} onChange={(event) => setAddedByFilter(event.target.value)} disabled={spinning}><option value="">Anyone</option>{contributorIds.map((id) => <option key={id} value={id}>{contributorName(id)}</option>)}</select></div>
                 <label className="series-filter"><input type="checkbox" checked={excludeSeries} onChange={(event) => setExcludeSeries(event.target.checked)} disabled={spinning} /><span className="series-filter-switch" aria-hidden="true" /><span className="series-filter-copy"><strong>Skip series</strong><small>Only movies can land on the wheel.</small></span></label>
               </div>
             </div>
-            <p className={`filter-feedback ${invalidYearRange ? 'is-invalid' : ''}`} role="status">{invalidYearRange ? 'Enter years from 1888 to 2100, with “from” no later than “to”.' : `${eligible.length} of ${backlog.length} backlog ${backlog.length === 1 ? 'entry' : 'entries'} in tonight’s mix${hasFilters && eligible.length === 0 && backlog.length > 0 ? ' — adjust or clear filters to spin' : ''}.`}</p>
+            <p className={`filter-feedback ${invalidYearRange ? 'is-invalid' : ''}`} role="status">{invalidYearRange ? advancedFiltersOpen ? 'Enter years from 1888 to 2100, with “from” no later than “to”.' : 'Open More filters to fix the release-year range.' : `${eligible.length} of ${backlog.length} backlog ${backlog.length === 1 ? 'entry' : 'entries'} in tonight’s mix${hasFilters && eligible.length === 0 && backlog.length > 0 ? ' — adjust or clear filters to spin' : ''}.`}</p>
           </section>
 
           <div className="dashboard">
