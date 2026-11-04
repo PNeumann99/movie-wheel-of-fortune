@@ -94,6 +94,7 @@ function App() {
   const [genre, setGenre] = useState<MovieGenre | ''>('')
   const [streamingService, setStreamingService] = useState<StreamingService | ''>('')
   const [excludedGenres, setExcludedGenres] = useState<MovieGenre[]>([])
+  const [requireStreamingService, setRequireStreamingService] = useState(false)
   const [excludeSeries, setExcludeSeries] = useState(false)
   const [minYear, setMinYear] = useState('')
   const [maxYear, setMaxYear] = useState('')
@@ -129,15 +130,16 @@ function App() {
     || (lowerYear !== null && upperYear !== null && lowerYear > upperYear)
   const eligible = useMemo(() => invalidYearRange ? [] : filterMovies(backlog, {
     excludedGenres: activeExcludedGenres,
+    requireStreamingService,
     excludeSeries,
     minYear: lowerYear,
     maxYear: upperYear,
     addedBy: addedByFilter || null,
-  }), [backlog, activeExcludedGenres, excludeSeries, lowerYear, upperYear, addedByFilter, invalidYearRange])
+  }), [backlog, activeExcludedGenres, requireStreamingService, excludeSeries, lowerYear, upperYear, addedByFilter, invalidYearRange])
   const weightedEligible = useMemo(() => withSpinCooldowns(eligible, spinCooldowns), [eligible, spinCooldowns])
   const segments = useMemo(() => getWheelSegments(weightedEligible), [weightedEligible])
   const chanceById = useMemo(() => new Map(segments.map((segment) => [segment.movie.id, segment.chance])), [segments])
-  const hasFilters = activeExcludedGenres.length > 0 || excludeSeries || minYear !== '' || maxYear !== '' || addedByFilter !== ''
+  const hasFilters = activeExcludedGenres.length > 0 || requireStreamingService || excludeSeries || minYear !== '' || maxYear !== '' || addedByFilter !== ''
   const contributorIds = [...new Set([...backlog.map((movie) => movie.addedBy), ...(addedByFilter ? [addedByFilter] : [])])]
   const editingMovie = store.movies.find((movie) => movie.id === editingId)
 
@@ -163,6 +165,7 @@ function App() {
 
   function clearFilters() {
     setExcludedGenres([])
+    setRequireStreamingService(false)
     setExcludeSeries(false)
     setMinYear('')
     setMaxYear('')
@@ -406,13 +409,22 @@ function App() {
                   ))}
                 </div>
               </fieldset>
-              <fieldset className="type-filter" disabled={spinning}>
-                <legend>TYPE</legend>
-                <label className={`genre-option ${excludeSeries ? 'is-excluded' : ''}`}>
-                  <input type="checkbox" aria-label="Skip series" checked={excludeSeries} onChange={(event) => setExcludeSeries(event.target.checked)} />
-                  <span>Skip series</span>
-                </label>
-              </fieldset>
+              <div className="filter-toggles">
+                <fieldset className="toggle-filter" disabled={spinning}>
+                  <legend>STREAMING</legend>
+                  <label className={`genre-option ${requireStreamingService ? 'is-required' : ''}`}>
+                    <input type="checkbox" checked={requireStreamingService} onChange={(event) => setRequireStreamingService(event.target.checked)} />
+                    <span>Streaming only</span>
+                  </label>
+                </fieldset>
+                <fieldset className="toggle-filter" disabled={spinning}>
+                  <legend>TYPE</legend>
+                  <label className={`genre-option ${excludeSeries ? 'is-excluded' : ''}`}>
+                    <input type="checkbox" aria-label="Skip series" checked={excludeSeries} onChange={(event) => setExcludeSeries(event.target.checked)} />
+                    <span>Skip series</span>
+                  </label>
+                </fieldset>
+              </div>
               </div>
               <div className="filter-side">
                 <div className="year-filter"><label>RELEASE YEAR</label><div className="year-inputs"><input aria-label="From year" type="number" min="1888" max="2100" step="1" placeholder="From" value={minYear} onChange={(event) => setMinYear(event.target.value)} disabled={spinning} /><span>to</span><input aria-label="To year" type="number" min="1888" max="2100" step="1" placeholder="To" value={maxYear} onChange={(event) => setMaxYear(event.target.value)} disabled={spinning} /></div></div>
